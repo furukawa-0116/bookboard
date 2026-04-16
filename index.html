@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BookBoard - 読書管理</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #F5F0E8; --surface: #FFFFFF; --card: #FFFDF8;
+      --border: #E8E0D0; --accent: #C8973F; --accent2: #8B6040;
+      --green: #2E7D32; --blue: #1565C0; --red: #C62828;
+      --text: #2A1810; --text2: #6B5B4E; --text3: #A09080;
+      --want: #E3F2FD; --want-border: #90CAF9; --want-accent: #1565C0;
+      --reading: #FFF3E0; --reading-border: #FFB74D; --reading-accent: #E65100;
+      --done: #E8F5E9; --done-border: #81C784; --done-accent: #2E7D32;
+    }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', -apple-system, sans-serif; min-height: 100vh; }
+
+    /* Header */
+    .header { background: #2A1810; color: #F7F0E3; padding: 0.8rem 1.5rem; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+    .logo { font-size: 1.1rem; font-weight: 800; letter-spacing: 0.08em; } .logo span { color: var(--accent); }
+    .header-actions { display: flex; gap: 0.5rem; }
+    .btn { padding: 0.4rem 0.9rem; border-radius: 0.4rem; border: none; cursor: pointer; font-size: 0.78rem; font-weight: 600; transition: all 0.15s; }
+    .btn-primary { background: var(--accent); color: #fff; } .btn-primary:hover { opacity: 0.85; }
+    .btn-outline { background: none; border: 1px solid rgba(255,255,255,0.2); color: #F7F0E3; } .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-sm { padding: 0.3rem 0.7rem; font-size: 0.72rem; }
+    .btn-accent { background: var(--accent); color: #fff; }
+    .btn-ghost { background: none; border: 1px solid var(--border); color: var(--text2); } .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* Nav tabs */
+    .nav-tabs { background: var(--surface); border-bottom: 1px solid var(--border); display: flex; padding: 0 1.5rem; }
+    .nav-tab { padding: 0.7rem 1.2rem; font-size: 0.85rem; color: var(--text3); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; background: none; border-top: none; border-left: none; border-right: none; font-weight: 600; }
+    .nav-tab:hover { color: var(--text); } .nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .page { display: none; } .page.active { display: block; }
+
+    /* Board */
+    .board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; padding: 1.5rem; min-height: calc(100vh - 110px); }
+    .column { background: var(--surface); border-radius: 0.8rem; border: 1px solid var(--border); display: flex; flex-direction: column; min-height: 300px; }
+    .column-header { padding: 0.8rem 1rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; border-radius: 0.8rem 0.8rem 0 0; }
+    .column-title { font-size: 0.85rem; font-weight: 700; display: flex; align-items: center; gap: 0.4rem; }
+    .column-count { font-size: 0.68rem; background: var(--border); color: var(--text2); padding: 0.1rem 0.5rem; border-radius: 1rem; }
+    .col-want .column-header { background: var(--want); } .col-want .column-title { color: var(--want-accent); }
+    .col-reading .column-header { background: var(--reading); } .col-reading .column-title { color: var(--reading-accent); }
+    .col-done .column-header { background: var(--done); } .col-done .column-title { color: var(--done-accent); }
+    .column-body { padding: 0.6rem; flex: 1; overflow-y: auto; min-height: 100px; }
+    .column-body.drag-over { background: rgba(200,151,63,0.05); }
+
+    /* Book card */
+    .book-card { background: var(--card); border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.7rem; margin-bottom: 0.5rem; cursor: grab; transition: box-shadow 0.15s, transform 0.15s; display: flex; gap: 0.6rem; }
+    .book-card:hover { box-shadow: 0 3px 12px rgba(0,0,0,0.08); transform: translateY(-1px); }
+    .book-card.dragging { opacity: 0.5; }
+    .book-cover { width: 40px; height: 56px; background: var(--border); border-radius: 0.2rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 1rem; overflow: hidden; }
+    .book-cover img { width: 100%; height: 100%; object-fit: cover; }
+    .book-card-info { flex: 1; min-width: 0; }
+    .book-card-title { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .book-card-author { font-size: 0.7rem; color: var(--text3); margin-top: 0.1rem; }
+    .book-card-tags { display: flex; gap: 0.25rem; flex-wrap: wrap; margin-top: 0.3rem; }
+    .tag { font-size: 0.6rem; padding: 0.08rem 0.4rem; border-radius: 0.8rem; font-weight: 600; }
+    .tag-genre { background: rgba(200,151,63,0.15); color: var(--accent); }
+    .tag-award { background: rgba(46,125,50,0.12); color: var(--green); }
+    .book-card-rating { display: flex; gap: 1px; margin-top: 0.25rem; }
+    .star { font-size: 0.65rem; color: var(--border); } .star.filled { color: var(--accent); }
+
+    /* Modal */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(42,24,16,0.5); z-index: 200; align-items: center; justify-content: center; padding: 1rem; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: var(--surface); border-radius: 0.8rem; padding: 1.5rem; width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto; position: relative; }
+    .modal-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; }
+    .modal-close { position: absolute; top: 0.8rem; right: 1rem; background: none; border: none; font-size: 1.3rem; cursor: pointer; color: var(--text3); } .modal-close:hover { color: var(--text); }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; } .form-group { display: flex; flex-direction: column; gap: 0.2rem; } .form-group.full { grid-column: 1 / -1; }
+    .form-label { font-size: 0.72rem; color: var(--text2); font-weight: 600; }
+    .form-input, .form-select, .form-textarea { padding: 0.5rem 0.7rem; background: var(--bg); border: 1px solid var(--border); border-radius: 0.35rem; color: var(--text); font-size: 0.85rem; font-family: inherit; } .form-input:focus, .form-select:focus, .form-textarea:focus { outline: none; border-color: var(--accent); }
+    .form-textarea { min-height: 60px; resize: vertical; }
+    .rating-input { display: flex; gap: 4px; cursor: pointer; } .rating-star { font-size: 1.3rem; color: var(--border); transition: color 0.1s; } .rating-star.filled { color: var(--accent); } .rating-star:hover { color: var(--accent); }
+    .modal-actions { display: flex; gap: 0.5rem; justify-content: flex-end; margin-top: 1rem; }
+
+    /* Book detail modal */
+    .detail-header { display: flex; gap: 1rem; margin-bottom: 1rem; }
+    .detail-cover { width: 80px; height: 112px; background: var(--border); border-radius: 0.3rem; flex-shrink: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    .detail-cover img { width: 100%; height: 100%; object-fit: cover; }
+    .detail-title { font-size: 1.2rem; font-weight: 800; color: var(--text); }
+    .detail-author { font-size: 0.85rem; color: var(--text2); margin-top: 0.2rem; }
+    .detail-meta { font-size: 0.75rem; color: var(--text3); margin-top: 0.3rem; line-height: 1.6; }
+    .detail-section { margin-top: 1rem; }
+    .detail-section-title { font-size: 0.7rem; color: var(--text3); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.4rem; padding-bottom: 0.3rem; border-bottom: 1px solid var(--border); }
+    .detail-synopsis { font-size: 0.85rem; line-height: 1.8; color: var(--text); background: var(--bg); padding: 0.8rem; border-radius: 0.4rem; }
+    .detail-note { font-size: 0.85rem; line-height: 1.7; color: var(--text2); }
+    .detail-actions { display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap; }
+
+    /* Recommend */
+    .recommend-section { padding: 1.5rem; }
+    .recommend-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 0.3rem; }
+    .recommend-sub { font-size: 0.78rem; color: var(--text3); margin-bottom: 1.2rem; }
+    .recommend-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 0.8rem; margin-bottom: 2rem; }
+    .recommend-card { background: var(--surface); border: 1px solid var(--border); border-radius: 0.6rem; padding: 0.8rem; display: flex; gap: 0.7rem; cursor: pointer; transition: box-shadow 0.15s; }
+    .recommend-card:hover { box-shadow: 0 3px 12px rgba(0,0,0,0.08); }
+    .recommend-reason { font-size: 0.7rem; color: var(--accent); margin-top: 0.3rem; font-weight: 600; }
+
+    /* Stats */
+    .stats-section { padding: 1.5rem; }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.8rem; margin-bottom: 1.5rem; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 0.5rem; padding: 1rem; text-align: center; }
+    .stat-val { font-size: 2rem; font-weight: 800; color: var(--accent); } .stat-label { font-size: 0.72rem; color: var(--text3); margin-top: 0.2rem; }
+    .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 0.6rem; padding: 1.2rem; margin-bottom: 1rem; }
+    .chart-title { font-size: 0.72rem; color: var(--text3); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.8rem; }
+    .bar-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; }
+    .bar-label { font-size: 0.78rem; color: var(--text2); min-width: 100px; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bar-track { flex: 1; height: 14px; background: var(--bg); border-radius: 7px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 7px; background: linear-gradient(90deg, var(--accent), #E8C878); }
+    .bar-val { font-size: 0.75rem; font-weight: 700; color: var(--text2); min-width: 30px; }
+
+    /* Search */
+    .search-box { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+    .search-box input { flex: 1; padding: 0.6rem 0.8rem; background: var(--bg); border: 1px solid var(--border); border-radius: 0.4rem; color: var(--text); font-size: 0.9rem; }
+    .search-box input:focus { outline: none; border-color: var(--accent); }
+    .search-results-list { max-height: 55vh; overflow-y: auto; }
+    .search-result {
+      display: flex; gap: 0.8rem; padding: 0.7rem; border: 1px solid var(--border); border-radius: 0.5rem;
+      margin-bottom: 0.5rem; cursor: pointer; transition: border-color 0.15s, background 0.15s;
+    }
+    .search-result:hover { border-color: var(--accent); background: rgba(200,151,63,0.04); }
+    .search-result-cover { width: 50px; height: 72px; background: var(--border); border-radius: 0.2rem; flex-shrink: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    .search-result-cover img { width: 100%; height: 100%; object-fit: cover; }
+    .search-result-info { flex: 1; min-width: 0; }
+    .search-result-title { font-size: 0.88rem; font-weight: 700; color: var(--text); }
+    .search-result-author { font-size: 0.75rem; color: var(--text2); margin-top: 0.1rem; }
+    .search-result-desc { font-size: 0.72rem; color: var(--text3); margin-top: 0.3rem; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .search-result-meta { font-size: 0.65rem; color: var(--text3); margin-top: 0.3rem; }
+    .search-result .btn { flex-shrink: 0; align-self: center; }
+    .search-loading { text-align: center; padding: 2rem; color: var(--text3); }
+    .search-empty { text-align: center; padding: 2rem; color: var(--text3); font-size: 0.85rem; }
+
+    @media (max-width: 768px) {
+      .board { grid-template-columns: 1fr; padding: 1rem; }
+      .column { min-height: 200px; }
+      .recommend-grid { grid-template-columns: 1fr; }
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .form-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo"><span>Book</span>Board</div>
+    <div class="header-actions">
+      <button class="btn btn-outline btn-sm" onclick="openSearch()">🔍 本を検索・追加</button>
+      <button class="btn btn-outline btn-sm" onclick="openAddBook()">✏️ 手動追加</button>
+      <button class="btn btn-outline btn-sm" onclick="exportData()">📥</button>
+      <button class="btn btn-outline btn-sm" onclick="document.getElementById('import-file').click()">📤</button>
+      <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
+    </div>
+  </div>
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="switchPage(this,'page-board')">📋 Board</button>
+    <button class="nav-tab" onclick="switchPage(this,'page-recommend')">💡 Recommend</button>
+    <button class="nav-tab" onclick="switchPage(this,'page-stats')">📊 Stats</button>
+  </div>
+
+  <!-- BOARD -->
+  <div class="page active" id="page-board">
+    <div class="board">
+      <div class="column col-want"><div class="column-header"><div class="column-title">📚 読みたい <span class="column-count" id="count-want">0</span></div></div><div class="column-body" id="col-want" ondragover="dragOver(event)" ondrop="drop(event,'want')"></div></div>
+      <div class="column col-reading"><div class="column-header"><div class="column-title">📖 読んでる <span class="column-count" id="count-reading">0</span></div></div><div class="column-body" id="col-reading" ondragover="dragOver(event)" ondrop="drop(event,'reading')"></div></div>
+      <div class="column col-done"><div class="column-header"><div class="column-title">✅ 読了 <span class="column-count" id="count-done">0</span></div></div><div class="column-body" id="col-done" ondragover="dragOver(event)" ondrop="drop(event,'done')"></div></div>
+    </div>
+  </div>
+
+  <!-- RECOMMEND -->
+  <div class="page" id="page-recommend"><div id="recommend-content"></div></div>
+
+  <!-- STATS -->
+  <div class="page" id="page-stats"><div id="stats-content"></div></div>
+
+  <!-- Add/Edit Modal -->
+  <div class="modal-overlay" id="modal-add" onclick="if(event.target===this)closeModal('modal-add')">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('modal-add')">✕</button>
+      <div class="modal-title" id="modal-add-title">本を追加</div>
+      <div class="form-grid">
+        <div class="form-group full"><label class="form-label">タイトル</label><input class="form-input" id="f-title" placeholder="例: 汝、星のごとく"></div>
+        <div class="form-group"><label class="form-label">著者</label><input class="form-input" id="f-author" placeholder="例: 凪良ゆう"></div>
+        <div class="form-group"><label class="form-label">ジャンル</label><select class="form-select" id="f-genre"><option value="">選択</option><option>ヒューマンドラマ</option><option>ミステリー</option><option>SF・ファンタジー</option><option>青春</option><option>歴史・時代</option><option>恋愛</option><option>お仕事</option><option>社会派</option><option>エッセイ</option><option>ノンフィクション</option><option>その他</option></select></div>
+        <div class="form-group"><label class="form-label">受賞歴</label><input class="form-input" id="f-award" placeholder="例: 本屋大賞, 直木賞"></div>
+        <div class="form-group"><label class="form-label">出版年</label><input class="form-input" id="f-year" type="number" placeholder="2023"></div>
+        <div class="form-group"><label class="form-label">ステータス</label><select class="form-select" id="f-status"><option value="want">読みたい</option><option value="reading">読んでる</option><option value="done">読了</option></select></div>
+        <div class="form-group full"><label class="form-label">評価</label><div class="rating-input" id="f-rating"></div></div>
+        <div class="form-group full"><label class="form-label">メモ・感想</label><textarea class="form-textarea" id="f-note" placeholder="自由にメモ"></textarea></div>
+      </div>
+      <input type="hidden" id="f-id">
+      <input type="hidden" id="f-cover">
+      <input type="hidden" id="f-synopsis">
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="closeModal('modal-add')">Cancel</button>
+        <button class="btn btn-accent" onclick="saveBook()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search Modal -->
+  <div class="modal-overlay" id="modal-search" onclick="if(event.target===this)closeModal('modal-search')">
+    <div class="modal" style="max-width:600px;">
+      <button class="modal-close" onclick="closeModal('modal-search')">✕</button>
+      <div class="modal-title">本を検索</div>
+      <div class="search-box">
+        <input id="search-input" placeholder="タイトル・著者名で検索..." onkeydown="if(event.key==='Enter')searchBooks()">
+        <button class="btn btn-accent" onclick="searchBooks()">検索</button>
+      </div>
+      <div class="search-results-list" id="search-results"></div>
+    </div>
+  </div>
+
+  <!-- Detail Modal -->
+  <div class="modal-overlay" id="modal-detail" onclick="if(event.target===this)closeModal('modal-detail')">
+    <div class="modal"><button class="modal-close" onclick="closeModal('modal-detail')">✕</button><div id="detail-content"></div></div>
+  </div>
+
+  <script>
+    // ===== DATA =====
+    let books = JSON.parse(localStorage.getItem('bookboard') || '[]');
+    let editingId = null;
+    let ratingVal = 0;
+    function save() { localStorage.setItem('bookboard', JSON.stringify(books)); }
+
+    // ===== BOOK DB (from bookaward 230 books) =====
+    const bookDB = [
+      {t:'イン・ザ・メガチャーチ',a:'朝井リョウ',g:'社会派',aw:'本屋大賞2026',y:2025,s:'アイドルグループのファン文化を複数視点から描く。'},
+      {t:'カフネ',a:'阿部暁子',g:'ヒューマンドラマ',aw:'本屋大賞2025',y:2024,s:'弟の死後、元恋人の料理が凍りついた日常をほどく。'},
+      {t:'成瀬は天下を取りにいく',a:'宮島未奈',g:'青春',aw:'本屋大賞2024',y:2023,s:'我が道を行く少女・成瀬あかりの痛快な青春。'},
+      {t:'汝、星のごとく',a:'凪良ゆう',g:'恋愛',aw:'本屋大賞2023',y:2022,s:'島で出会った2人の切ない恋と成長の物語。'},
+      {t:'同志少女よ、敵を撃て',a:'逢坂冬馬',g:'歴史・時代',aw:'本屋大賞2022',y:2021,s:'少女狙撃兵の独ソ戦を描く歴史冒険譚。'},
+      {t:'52ヘルツのクジラたち',a:'町田そのこ',g:'ヒューマンドラマ',aw:'本屋大賞2021',y:2020,s:'搾取されてきた女性と虐待少年の再生物語。'},
+      {t:'流浪の月',a:'凪良ゆう',g:'ヒューマンドラマ',aw:'本屋大賞2020',y:2019,s:'再会すべきではなかった男女の深い余韻の傑作。'},
+      {t:'そして、バトンは渡された',a:'瀬尾まいこ',g:'ヒューマンドラマ',aw:'本屋大賞2019',y:2018,s:'血のつながらない親にリレーされて育った少女の物語。'},
+      {t:'かがみの孤城',a:'辻村深月',g:'SF・ファンタジー',aw:'本屋大賞2018',y:2017,s:'鏡の中の城に集められた7人の少年少女の感動作。'},
+      {t:'蜜蜂と遠雷',a:'恩田陸',g:'青春',aw:'本屋大賞2017',y:2016,s:'ピアノコンクールを舞台にした4人の天才の物語。'},
+      {t:'羊と鋼の森',a:'宮下奈都',g:'お仕事',aw:'本屋大賞2016',y:2015,s:'ピアノ調律師を目指す青年の静かな成長物語。'},
+      {t:'鹿の王',a:'上橋菜穂子',g:'SF・ファンタジー',aw:'本屋大賞2015',y:2014,s:'戦士と幼子の壮大なファンタジー冒険。'},
+      {t:'村上海賊の娘',a:'和田竜',g:'歴史・時代',aw:'本屋大賞2014',y:2013,s:'戦国の瀬戸内海で海賊王の娘が活躍する歴史大作。'},
+      {t:'海賊とよばれた男',a:'百田尚樹',g:'歴史・時代',aw:'本屋大賞2013',y:2012,s:'石油会社の経営者が再起を図る経済歴史小説。'},
+      {t:'舟を編む',a:'三浦しをん',g:'お仕事',aw:'本屋大賞2012',y:2011,s:'辞書編纂に情熱を注ぐ人々の温かい物語。'},
+      {t:'謎解きはディナーのあとで',a:'東川篤哉',g:'ミステリー',aw:'本屋大賞2011',y:2010,s:'令嬢刑事と毒舌執事が事件を解くユーモアミステリ。'},
+      {t:'天地明察',a:'冲方丁',g:'歴史・時代',aw:'本屋大賞2010',y:2009,s:'江戸時代、日本独自の暦づくりに挑む壮大な時代小説。'},
+      {t:'告白',a:'湊かなえ',g:'ミステリー',aw:'本屋大賞2009',y:2008,s:'教師の衝撃的な告白から始まる傑作ミステリー。'},
+      {t:'ゴールデンスランバー',a:'伊坂幸太郎',g:'ミステリー',aw:'本屋大賞2008',y:2007,s:'濡れ衣を着せられた男の逃走劇エンタテインメント。'},
+      {t:'一瞬の風になれ',a:'佐藤多佳子',g:'青春',aw:'本屋大賞2007',y:2006,s:'高校陸上部で天才と共に青春を駆け抜ける。'},
+      {t:'東京タワー',a:'リリー・フランキー',g:'ヒューマンドラマ',aw:'本屋大賞2006',y:2005,s:'母との絆を描いた笑って泣ける自伝的感動作。'},
+      {t:'夜のピクニック',a:'恩田陸',g:'青春',aw:'本屋大賞2005',y:2004,s:'夜通し80キロを歩く高校最後の行事を描く青春小説。'},
+      {t:'博士の愛した数式',a:'小川洋子',g:'ヒューマンドラマ',aw:'本屋大賞2004',y:2003,s:'80分の記憶しか持たない博士と家政婦の感動物語。'},
+      {t:'ラブカは静かに弓を持つ',a:'安壇美緒',g:'ミステリー',aw:'本屋大賞2023ノミネート',y:2022,s:'音楽教室への潜入調査。チェロの音色と秘密の任務。'},
+      {t:'方舟',a:'夕木春央',g:'ミステリー',aw:'本屋大賞2023ノミネート',y:2022,s:'水没する地下建築。極限で人間の本性が試される。'},
+      {t:'爆弾',a:'呉勝浩',g:'ミステリー',aw:'本屋大賞2023ノミネート',y:2022,s:'爆発を予言する犯人とのスリル満点の攻防。'},
+      {t:'正欲',a:'朝井リョウ',g:'社会派',aw:'本屋大賞2022ノミネート',y:2021,s:'多様性の裏側、生きづらさと正しさを鋭く描く。'},
+      {t:'六人の嘘つきな大学生',a:'浅倉秋成',g:'ミステリー',aw:'本屋大賞2022ノミネート',y:2021,s:'就活の最終選考で繰り広げられる心理戦。'},
+      {t:'推し、燃ゆ',a:'宇佐見りん',g:'社会派',aw:'芥川賞',y:2020,s:'推しの炎上。ままならない人生を生きる少女の叫び。'},
+      {t:'コンビニ人間',a:'村田沙耶香',g:'社会派',aw:'芥川賞',y:2016,s:'18年間コンビニバイトの女性が普通を問う。'},
+      {t:'火花',a:'又吉直樹',g:'ヒューマンドラマ',aw:'芥川賞',y:2015,s:'売れない芸人が先輩との関係の中で笑いの本質を探る。'},
+      {t:'容疑者Xの献身',a:'東野圭吾',g:'ミステリー',aw:'直木賞',y:2005,s:'天才数学者vs物理学者。究極の頭脳戦。'},
+      {t:'ノースライト',a:'横山秀夫',g:'ミステリー',aw:'本屋大賞2020ノミネート',y:2019,s:'新築の家に家族の姿はなく、椅子が一脚あるだけ。'},
+      {t:'線は、僕を描く',a:'砥上裕將',g:'青春',aw:'本屋大賞2020ノミネート',y:2019,s:'水墨画を通じて生きる意味を見出す青年の物語。'},
+      {t:'夜は短し歩けよ乙女',a:'森見登美彦',g:'SF・ファンタジー',aw:'本屋大賞2007ノミネート',y:2006,s:'京都を舞台に黒髪の乙女を巡る珍事件と恋。'},
+      {t:'図書館戦争',a:'有川浩',g:'SF・ファンタジー',aw:'本屋大賞2007ノミネート',y:2006,s:'図書隊vs検閲機関。表現の自由を守る近未来バトル。'},
+      {t:'ライオンのおやつ',a:'小川糸',g:'ヒューマンドラマ',aw:'本屋大賞2020ノミネート',y:2019,s:'ホスピスでの穏やかな日々が生きる意味を問う。'},
+      {t:'君の膵臓をたべたい',a:'住野よる',g:'恋愛',aw:'本屋大賞2016ノミネート',y:2015,s:'余命わずかなクラスメイトとの交流が涙を誘う。'},
+      {t:'熱源',a:'川越宗一',g:'歴史・時代',aw:'直木賞,本屋大賞2020ノミネート',y:2019,s:'樺太アイヌが生きるための熱を追う圧巻の歴史小説。'},
+      {t:'成瀬は信じた道をいく',a:'宮島未奈',g:'青春',aw:'本屋大賞2025ノミネート',y:2024,s:'成瀬あかり続編。我が道を信じて進む。'},
+    ];
+
+    // ===== MODAL =====
+    function openModal(id) { document.getElementById(id).classList.add('open'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+    function switchPage(btn, pageId) { document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active')); btn.classList.add('active'); document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); document.getElementById(pageId).classList.add('active'); if(pageId==='page-recommend') renderRecommend(); if(pageId==='page-stats') renderStats(); }
+
+    // ===== GOOGLE BOOKS SEARCH =====
+    function openSearch() {
+      document.getElementById('search-input').value = '';
+      document.getElementById('search-results').innerHTML = '<div class="search-empty">タイトルや著者名を入力して検索</div>';
+      openModal('modal-search');
+      setTimeout(() => document.getElementById('search-input').focus(), 100);
+    }
+
+    async function searchBooks() {
+      const q = document.getElementById('search-input').value.trim();
+      if (!q) return;
+      const el = document.getElementById('search-results');
+      el.innerHTML = '<div class="search-loading">検索中...</div>';
+
+      try {
+        const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&langRestrict=ja&maxResults=12&printType=books`);
+        const data = await res.json();
+
+        if (!data.items || data.items.length === 0) {
+          el.innerHTML = '<div class="search-empty">見つかりませんでした。別のキーワードで試してください。</div>';
+          return;
+        }
+
+        el.innerHTML = data.items.map((item, i) => {
+          const v = item.volumeInfo;
+          const title = v.title || '';
+          const authors = (v.authors || []).join(', ');
+          const desc = v.description || '';
+          const thumb = v.imageLinks?.thumbnail?.replace('http:', 'https:') || '';
+          const year = v.publishedDate ? v.publishedDate.slice(0, 4) : '';
+          const categories = (v.categories || []).join(', ');
+          const pages = v.pageCount || '';
+          const already = books.find(b => b.title === title && b.author === authors);
+
+          return `
+            <div class="search-result" onclick="addSearchResult(${i})">
+              <div class="search-result-cover">${thumb ? `<img src="${thumb}" alt="">` : '📖'}</div>
+              <div class="search-result-info">
+                <div class="search-result-title">${title}</div>
+                <div class="search-result-author">${authors || '著者不明'}</div>
+                ${desc ? `<div class="search-result-desc">${desc}</div>` : ''}
+                <div class="search-result-meta">${year ? year + '年' : ''} ${categories ? '・' + categories : ''} ${pages ? '・' + pages + 'p' : ''}</div>
+              </div>
+              <button class="btn ${already ? 'btn-ghost' : 'btn-accent'} btn-sm" onclick="event.stopPropagation();addSearchResult(${i})">${already ? '登録済' : '+ 追加'}</button>
+            </div>`;
+        }).join('');
+
+        // Store results for adding
+        window._searchResults = data.items;
+      } catch (err) {
+        el.innerHTML = `<div class="search-empty">エラーが発生しました。<br><span style="font-size:0.75rem;">${err.message}</span></div>`;
+      }
+    }
+
+    function addSearchResult(idx) {
+      const item = window._searchResults?.[idx];
+      if (!item) return;
+      const v = item.volumeInfo;
+      const title = v.title || '';
+      const authors = (v.authors || []).join(', ');
+
+      if (books.find(b => b.title === title && b.author === authors)) {
+        alert('既に登録済みです');
+        return;
+      }
+
+      const thumb = v.imageLinks?.thumbnail?.replace('http:', 'https:') || '';
+      const desc = v.description || '';
+      const year = v.publishedDate ? Number(v.publishedDate.slice(0, 4)) : 0;
+      const categories = (v.categories || []).join(', ');
+
+      // Auto-detect genre from categories
+      const genre = detectGenre(categories, title, desc);
+
+      // Check if it's in our bookDB (for award info)
+      const dbMatch = bookDB.find(d => d.t === title || (d.a === authors && title.includes(d.t.slice(0, 4))));
+
+      books.push({
+        id: Date.now().toString(),
+        title, author: authors, genre,
+        award: dbMatch?.aw || '',
+        year, status: 'want', rating: 0,
+        note: '', cover: thumb, synopsis: desc,
+      });
+
+      save(); renderBoard(); searchBooks(); // Re-render to show "登録済"
+    }
+
+    function detectGenre(categories, title, desc) {
+      const text = (categories + ' ' + title + ' ' + desc).toLowerCase();
+      if (text.includes('mystery') || text.includes('ミステリ') || text.includes('推理') || text.includes('殺人')) return 'ミステリー';
+      if (text.includes('fantasy') || text.includes('sf') || text.includes('ファンタジー')) return 'SF・ファンタジー';
+      if (text.includes('history') || text.includes('歴史') || text.includes('時代')) return '歴史・時代';
+      if (text.includes('romance') || text.includes('恋愛') || text.includes('ラブ')) return '恋愛';
+      if (text.includes('young') || text.includes('青春') || text.includes('高校')) return '青春';
+      if (text.includes('business') || text.includes('仕事') || text.includes('職業')) return 'お仕事';
+      if (text.includes('social') || text.includes('社会')) return '社会派';
+      if (text.includes('fiction') || text.includes('小説') || text.includes('literary')) return 'ヒューマンドラマ';
+      return '';
+    }
+
+    // ===== BOARD =====
+    function renderBoard() {
+      ['want','reading','done'].forEach(status => {
+        const col = document.getElementById('col-'+status);
+        const list = books.filter(b => b.status === status);
+        document.getElementById('count-'+status).textContent = list.length;
+        col.innerHTML = list.map(b => `
+          <div class="book-card" draggable="true" ondragstart="dragStart(event,'${b.id}')" onclick="openDetail('${b.id}')">
+            <div class="book-cover">${b.cover ? `<img src="${b.cover}" alt="">` : '📖'}</div>
+            <div class="book-card-info">
+              <div class="book-card-title">${b.title}</div>
+              <div class="book-card-author">${b.author}</div>
+              <div class="book-card-tags">
+                ${b.genre ? `<span class="tag tag-genre">${b.genre}</span>` : ''}
+                ${b.award ? `<span class="tag tag-award">${b.award.split(',')[0]}</span>` : ''}
+              </div>
+              ${b.rating ? `<div class="book-card-rating">${[1,2,3,4,5].map(i=>`<span class="star ${i<=b.rating?'filled':''}">★</span>`).join('')}</div>` : ''}
+            </div>
+          </div>`).join('') || `<div style="text-align:center;padding:2rem;color:var(--text3);font-size:0.82rem;">ここに本をドラッグ</div>`;
+      });
+    }
+
+    // ===== DRAG & DROP =====
+    let dragId = null;
+    function dragStart(e, id) { dragId = id; e.dataTransfer.effectAllowed = 'move'; e.target.classList.add('dragging'); }
+    function dragOver(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
+    function drop(e, status) { e.preventDefault(); e.currentTarget.classList.remove('drag-over'); if(!dragId) return; const b = books.find(x=>x.id===dragId); if(b) { b.status = status; save(); renderBoard(); } dragId = null; }
+    document.addEventListener('dragend', () => { document.querySelectorAll('.drag-over').forEach(el=>el.classList.remove('drag-over')); document.querySelectorAll('.dragging').forEach(el=>el.classList.remove('dragging')); });
+
+    // ===== ADD / EDIT BOOK =====
+    function openAddBook() {
+      editingId = null; ratingVal = 0;
+      document.getElementById('modal-add-title').textContent = '本を追加';
+      ['f-title','f-author','f-award','f-note','f-cover','f-synopsis'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('f-genre').value = ''; document.getElementById('f-year').value = ''; document.getElementById('f-status').value = 'want'; document.getElementById('f-id').value = '';
+      renderRatingInput(); openModal('modal-add');
+    }
+    function openEditBook(id) {
+      const b = books.find(x=>x.id===id); if(!b) return; editingId = id; ratingVal = b.rating || 0;
+      document.getElementById('modal-add-title').textContent = '本を編集';
+      document.getElementById('f-title').value = b.title; document.getElementById('f-author').value = b.author; document.getElementById('f-genre').value = b.genre || '';
+      document.getElementById('f-award').value = b.award || ''; document.getElementById('f-year').value = b.year || ''; document.getElementById('f-status').value = b.status;
+      document.getElementById('f-note').value = b.note || ''; document.getElementById('f-id').value = b.id;
+      document.getElementById('f-cover').value = b.cover || ''; document.getElementById('f-synopsis').value = b.synopsis || '';
+      renderRatingInput(); openModal('modal-add'); closeModal('modal-detail');
+    }
+    function renderRatingInput() {
+      document.getElementById('f-rating').innerHTML = [1,2,3,4,5].map(i => `<span class="rating-star ${i<=ratingVal?'filled':''}" onclick="ratingVal=${i};renderRatingInput();">★</span>`).join('');
+    }
+    function saveBook() {
+      const title = document.getElementById('f-title').value.trim(); if (!title) return;
+      const data = { title, author: document.getElementById('f-author').value.trim(), genre: document.getElementById('f-genre').value, award: document.getElementById('f-award').value.trim(), year: Number(document.getElementById('f-year').value) || 0, status: document.getElementById('f-status').value, rating: ratingVal, note: document.getElementById('f-note').value.trim(), cover: document.getElementById('f-cover').value, synopsis: document.getElementById('f-synopsis').value };
+      if (editingId) { const b = books.find(x=>x.id===editingId); if(b) Object.assign(b, data); }
+      else { data.id = Date.now().toString(); books.push(data); }
+      save(); closeModal('modal-add'); renderBoard();
+    }
+    function deleteBook(id) { if(!confirm('削除しますか？')) return; books = books.filter(b=>b.id!==id); save(); closeModal('modal-detail'); renderBoard(); }
+
+    // ===== ADD FROM DB =====
+    function addFromDB(idx) {
+      const d = bookDB[idx];
+      if (books.find(b => b.title === d.t)) { alert('既に登録済みです'); return; }
+      books.push({ id: Date.now().toString(), title: d.t, author: d.a, genre: d.g, award: d.aw, year: d.y, status: 'want', rating: 0, note: '', cover: '', synopsis: d.s });
+      save(); renderBoard(); renderRecommend();
+    }
+
+    // ===== DETAIL =====
+    function openDetail(id) {
+      const b = books.find(x=>x.id===id); if(!b) return;
+      const stars = b.rating ? [1,2,3,4,5].map(i=>`<span class="star ${i<=b.rating?'filled':''}">★</span>`).join('') : 'なし';
+      document.getElementById('detail-content').innerHTML = `
+        <div class="detail-header">
+          <div class="detail-cover">${b.cover ? `<img src="${b.cover}">` : '📖'}</div>
+          <div>
+            <div class="detail-title">${b.title}</div>
+            <div class="detail-author">著 / ${b.author}</div>
+            <div class="detail-meta">
+              ${b.genre ? 'ジャンル: '+b.genre+'<br>' : ''}${b.award ? '受賞歴: '+b.award+'<br>' : ''}${b.year ? '出版年: '+b.year+'年<br>' : ''}評価: ${stars}
+            </div>
+          </div>
+        </div>
+        ${b.synopsis ? `<div class="detail-section"><div class="detail-section-title">あらすじ</div><div class="detail-synopsis">${b.synopsis}</div></div>` : ''}
+        ${b.note ? `<div class="detail-section"><div class="detail-section-title">メモ・感想</div><div class="detail-note">${b.note}</div></div>` : ''}
+        <div class="detail-actions">
+          <button class="btn btn-accent btn-sm" onclick="openEditBook('${b.id}')">編集</button>
+          <button class="btn btn-ghost btn-sm" style="color:var(--red);border-color:var(--red);" onclick="deleteBook('${b.id}')">削除</button>
+        </div>
+      `;
+      openModal('modal-detail');
+    }
+
+    // ===== RECOMMEND =====
+    function renderRecommend() {
+      const done = books.filter(b => b.status === 'done');
+      const registered = new Set(books.map(b => b.title));
+      const available = bookDB.filter(d => !registered.has(d.t));
+
+      // Genre analysis
+      const genreCount = {}; done.forEach(b => { if(b.genre) genreCount[b.genre] = (genreCount[b.genre]||0)+1; });
+      const topGenres = Object.entries(genreCount).sort((a,b)=>b[1]-a[1]).slice(0,3).map(x=>x[0]);
+
+      // Author analysis
+      const authorCount = {}; done.forEach(b => { if(b.author) authorCount[b.author] = (authorCount[b.author]||0)+1; });
+      const topAuthors = Object.entries(authorCount).sort((a,b)=>b[1]-a[1]).slice(0,3).map(x=>x[0]);
+
+      // Award analysis
+      const likedAwards = new Set(); done.filter(b=>b.rating>=4).forEach(b => { if(b.award) b.award.split(',').forEach(a=>likedAwards.add(a.trim())); });
+
+      // Average rating by genre
+      const avgRating = {}; done.forEach(b => { if(b.genre&&b.rating) { if(!avgRating[b.genre]) avgRating[b.genre]={sum:0,count:0}; avgRating[b.genre].sum+=b.rating; avgRating[b.genre].count++; }});
+
+      // Generate recommendations
+      const recs = [];
+      // By genre
+      topGenres.forEach(g => {
+        available.filter(d=>d.g===g).slice(0,2).forEach(d => recs.push({...d, reason:`「${g}」が好きなあなたに`}));
+      });
+      // By author
+      topAuthors.forEach(a => {
+        available.filter(d=>d.a===a).slice(0,1).forEach(d => recs.push({...d, reason:`${a}の別作品`}));
+      });
+      // By award
+      available.filter(d=>d.aw&&[...likedAwards].some(a=>d.aw.includes(a))).slice(0,3).forEach(d => recs.push({...d, reason:`高評価した作品と同じ受賞歴`}));
+      // Unexplored genre
+      const allGenres = [...new Set(bookDB.map(d=>d.g))];
+      const unexplored = allGenres.filter(g => !genreCount[g]);
+      unexplored.slice(0,1).forEach(g => {
+        available.filter(d=>d.g===g).slice(0,2).forEach(d => recs.push({...d, reason:`まだ読んでない「${g}」ジャンル`}));
+      });
+
+      // Dedupe
+      const seen = new Set(); const unique = recs.filter(r => { if(seen.has(r.t)) return false; seen.add(r.t); return true; });
+
+      const el = document.getElementById('recommend-content');
+      if (!done.length) {
+        el.innerHTML = `<div class="recommend-section"><div class="recommend-title">おすすめを表示するには</div><div class="recommend-sub">まず本を「読了」に移動して評価をつけてください。読書傾向を分析しておすすめを提案します。</div><div class="recommend-title">本屋大賞データベースから追加</div><div class="recommend-grid">${bookDB.slice(0,12).map((d,i)=>recCardHTML(d,i)).join('')}</div></div>`;
+        return;
+      }
+
+      el.innerHTML = `
+        <div class="recommend-section">
+          <div class="recommend-title">あなたへのおすすめ</div>
+          <div class="recommend-sub">読了${done.length}冊の傾向から${unique.length}冊をピックアップ</div>
+          <div class="recommend-grid">${unique.length ? unique.map((d,i)=>recCardHTMLWithReason(d,bookDB.indexOf(bookDB.find(x=>x.t===d.t)))).join('') : '<div style="color:var(--text3);">データベースの本をすべて登録済みです</div>'}</div>
+        </div>
+        <div class="recommend-section">
+          <div class="recommend-title">本屋大賞データベース</div>
+          <div class="recommend-sub">歴代受賞作・ノミネート作品から追加</div>
+          <div class="recommend-grid">${available.slice(0,8).map((d,i)=>recCardHTML(d,bookDB.indexOf(bookDB.find(x=>x.t===d.t)))).join('')}</div>
+        </div>
+      `;
+    }
+    function recCardHTML(d, idx) {
+      return `<div class="recommend-card" onclick="addFromDB(${idx})"><div class="book-cover" style="width:45px;height:63px;">📖</div><div class="book-card-info"><div class="book-card-title">${d.t}</div><div class="book-card-author">${d.a}</div><div class="book-card-tags"><span class="tag tag-genre">${d.g}</span>${d.aw?`<span class="tag tag-award">${d.aw.split(',')[0]}</span>`:''}</div></div></div>`;
+    }
+    function recCardHTMLWithReason(d, idx) {
+      return `<div class="recommend-card" onclick="addFromDB(${idx>=0?idx:0})"><div class="book-cover" style="width:45px;height:63px;">📖</div><div class="book-card-info"><div class="book-card-title">${d.t}</div><div class="book-card-author">${d.a}</div><div class="book-card-tags"><span class="tag tag-genre">${d.g}</span></div><div class="recommend-reason">${d.reason||''}</div></div></div>`;
+    }
+
+    // ===== STATS =====
+    function renderStats() {
+      const done = books.filter(b=>b.status==='done');
+      const total = books.length;
+      const avgRating = done.length ? (done.reduce((s,b)=>s+(b.rating||0),0)/done.filter(b=>b.rating).length).toFixed(1) : '-';
+
+      const genreCount = {}; books.forEach(b => { if(b.genre) genreCount[b.genre]=(genreCount[b.genre]||0)+1; });
+      const genreSorted = Object.entries(genreCount).sort((a,b)=>b[1]-a[1]);
+      const genreMax = genreSorted[0]?.[1] || 1;
+
+      const authorCount = {}; books.forEach(b => { if(b.author) authorCount[b.author]=(authorCount[b.author]||0)+1; });
+      const authorSorted = Object.entries(authorCount).sort((a,b)=>b[1]-a[1]).slice(0,8);
+      const authorMax = authorSorted[0]?.[1] || 1;
+
+      const yearCount = {}; books.forEach(b => { if(b.year) { const decade = Math.floor(b.year/10)*10+'s'; yearCount[decade]=(yearCount[decade]||0)+1; }});
+      const yearSorted = Object.entries(yearCount).sort((a,b)=>a[0].localeCompare(b[0]));
+      const yearMax = Math.max(...yearSorted.map(x=>x[1]), 1);
+
+      document.getElementById('stats-content').innerHTML = `
+        <div class="stats-section">
+          <div class="stats-grid">
+            <div class="stat-card"><div class="stat-val">${total}</div><div class="stat-label">Total</div></div>
+            <div class="stat-card"><div class="stat-val" style="color:var(--blue);">${books.filter(b=>b.status==='want').length}</div><div class="stat-label">読みたい</div></div>
+            <div class="stat-card"><div class="stat-val" style="color:var(--reading-accent);">${books.filter(b=>b.status==='reading').length}</div><div class="stat-label">読んでる</div></div>
+            <div class="stat-card"><div class="stat-val" style="color:var(--green);">${done.length}</div><div class="stat-label">読了</div></div>
+            <div class="stat-card"><div class="stat-val">${avgRating}</div><div class="stat-label">平均評価</div></div>
+          </div>
+          <div class="chart-card"><div class="chart-title">ジャンル分布</div>${genreSorted.map(([g,c])=>`<div class="bar-row"><div class="bar-label">${g}</div><div class="bar-track"><div class="bar-fill" style="width:${c/genreMax*100}%"></div></div><div class="bar-val">${c}</div></div>`).join('')}</div>
+          <div class="chart-card"><div class="chart-title">著者ランキング</div>${authorSorted.map(([a,c])=>`<div class="bar-row"><div class="bar-label">${a}</div><div class="bar-track"><div class="bar-fill" style="width:${c/authorMax*100}%"></div></div><div class="bar-val">${c}</div></div>`).join('')}</div>
+          <div class="chart-card"><div class="chart-title">年代分布</div>${yearSorted.map(([y,c])=>`<div class="bar-row"><div class="bar-label">${y}</div><div class="bar-track"><div class="bar-fill" style="width:${c/yearMax*100}%"></div></div><div class="bar-val">${c}</div></div>`).join('')}</div>
+        </div>
+      `;
+    }
+
+    // ===== EXPORT / IMPORT =====
+    function exportData() { const b=new Blob([JSON.stringify(books,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='bookboard.json'; a.click(); }
+    function importData(e) { const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>{try{books=JSON.parse(ev.target.result);save();renderBoard();alert('Import OK!');}catch{alert('Invalid file');}}; r.readAsText(f); }
+
+    // ===== INIT =====
+    document.addEventListener('keydown', e => { if(e.key==='Escape') document.querySelectorAll('.modal-overlay.open').forEach(m=>m.classList.remove('open')); });
+    renderBoard();
+  </script>
+</body>
+</html>
