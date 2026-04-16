@@ -295,12 +295,13 @@
       }
       try {
         var resList = await Promise.all([
-          fetch('https://www.googleapis.com/books/v1/volumes?q=intitle:' + encodeURIComponent(q) + '&maxResults=12').then(function(r){return r.json();}).catch(function(){return {items:[]};}),
-          fetch('https://www.googleapis.com/books/v1/volumes?q=inauthor:' + encodeURIComponent(q) + '&maxResults=12').then(function(r){return r.json();}).catch(function(){return {items:[]};}),
+          fetch('https://www.googleapis.com/books/v1/volumes?q=intitle:' + encodeURIComponent(q) + '&maxResults=10').then(function(r){return r.json();}).catch(function(){return {items:[]};}),
+          fetch('https://www.googleapis.com/books/v1/volumes?q=inauthor:' + encodeURIComponent(q) + '&maxResults=10').then(function(r){return r.json();}).catch(function(){return {items:[]};}),
+          fetch('https://www.googleapis.com/books/v1/volumes?q=' + encodeURIComponent(q) + '&maxResults=10').then(function(r){return r.json();}).catch(function(){return {items:[]};}),
         ]);
         var seen = {};
         var allItems = [];
-        (resList[0].items||[]).concat(resList[1].items||[]).forEach(function(item) {
+        (resList[0].items||[]).concat(resList[1].items||[]).concat(resList[2].items||[]).forEach(function(item) {
           var key = (item.volumeInfo.title||'') + '/' + ((item.volumeInfo.authors||[]).join(','));
           if (!seen[key]) { seen[key] = true; allItems.push(item); }
         });
