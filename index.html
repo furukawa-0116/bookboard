@@ -279,6 +279,10 @@
       setTimeout(() => document.getElementById('search-input').focus(), 100);
     }
 
+    function esc(str) {
+      const d = document.createElement('div'); d.textContent = str; return d.innerHTML;
+    }
+
     async function searchBooks() {
       const q = document.getElementById('search-input').value.trim();
       if (!q) return;
@@ -290,7 +294,7 @@
         return;
       }
       try {
-        const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=20&country=JP`);
+        const res = await fetch('https://www.googleapis.com/books/v1/volumes?q=' + encodeURIComponent(q) + '&maxResults=20&country=JP');
         const data = await res.json();
 
         if (!data.items || data.items.length === 0) {
@@ -298,34 +302,67 @@
           return;
         }
 
-        el.innerHTML = data.items.map((item, i) => {
-          const v = item.volumeInfo;
-          const title = v.title || '';
-          const authors = (v.authors || []).join(', ');
-          const desc = v.description || '';
-          const thumb = v.imageLinks?.thumbnail?.replace('http:', 'https:') || '';
-          const year = v.publishedDate ? v.publishedDate.slice(0, 4) : '';
-          const categories = (v.categories || []).join(', ');
-          const pages = v.pageCount || '';
-          const already = books.find(b => b.title === title && b.author === authors);
-
-          return `
-            <div class="search-result" onclick="addSearchResult(${i})">
-              <div class="search-result-cover">${thumb ? `<img src="${thumb}" alt="">` : '📖'}</div>
-              <div class="search-result-info">
-                <div class="search-result-title">${title}</div>
-                <div class="search-result-author">${authors || '著者不明'}</div>
-                ${desc ? `<div class="search-result-desc">${desc}</div>` : ''}
-                <div class="search-result-meta">${year ? year + '年' : ''} ${categories ? '・' + categories : ''} ${pages ? '・' + pages + 'p' : ''}</div>
-              </div>
-              <button class="btn ${already ? 'btn-ghost' : 'btn-accent'} btn-sm" onclick="event.stopPropagation();addSearchResult(${i})">${already ? '登録済' : '+ 追加'}</button>
-            </div>`;
-        }).join('');
-
-        // Store results for adding
         window._searchResults = data.items;
+        el.innerHTML = '';
+
+        data.items.forEach(function(item, i) {
+          var v = item.volumeInfo;
+          var title = v.title || '';
+          var authors = (v.authors || []).join(', ');
+          var desc = v.description || '';
+          var thumb = (v.imageLinks && v.imageLinks.thumbnail) ? v.imageLinks.thumbnail.replace('http:', 'https:') : '';
+          var year = v.publishedDate ? v.publishedDate.slice(0, 4) : '';
+          var categories = (v.categories || []).join(', ');
+          var pages = v.pageCount || '';
+          var already = books.find(function(b) { return b.title === title && b.author === authors; });
+
+          var div = document.createElement('div');
+          div.className = 'search-result';
+          div.onclick = function() { addSearchResult(i); };
+
+          var coverDiv = document.createElement('div');
+          coverDiv.className = 'search-result-cover';
+          if (thumb) { var img = document.createElement('img'); img.src = thumb; coverDiv.appendChild(img); }
+          else { coverDiv.textContent = '📖'; }
+
+          var infoDiv = document.createElement('div');
+          infoDiv.className = 'search-result-info';
+
+          var titleDiv = document.createElement('div');
+          titleDiv.className = 'search-result-title';
+          titleDiv.textContent = title;
+
+          var authorDiv = document.createElement('div');
+          authorDiv.className = 'search-result-author';
+          authorDiv.textContent = authors || '著者不明';
+
+          infoDiv.appendChild(titleDiv);
+          infoDiv.appendChild(authorDiv);
+
+          if (desc) {
+            var descDiv = document.createElement('div');
+            descDiv.className = 'search-result-desc';
+            descDiv.textContent = desc.length > 120 ? desc.slice(0, 120) + '...' : desc;
+            infoDiv.appendChild(descDiv);
+          }
+
+          var metaDiv = document.createElement('div');
+          metaDiv.className = 'search-result-meta';
+          metaDiv.textContent = [year ? year + '年' : '', categories, pages ? pages + 'p' : ''].filter(Boolean).join(' ・ ');
+          infoDiv.appendChild(metaDiv);
+
+          var btn = document.createElement('button');
+          btn.className = 'btn ' + (already ? 'btn-ghost' : 'btn-accent') + ' btn-sm';
+          btn.textContent = already ? '登録済' : '+ 追加';
+          btn.onclick = function(e) { e.stopPropagation(); addSearchResult(i); };
+
+          div.appendChild(coverDiv);
+          div.appendChild(infoDiv);
+          div.appendChild(btn);
+          el.appendChild(div);
+        });
       } catch (err) {
-        el.innerHTML = `<div class="search-empty">エラーが発生しました。<br><span style="font-size:0.75rem;">${err.message}</span></div>`;
+        el.innerHTML = '<div class="search-empty">エラー: ' + esc(err.message) + '</div>';
       }
     }
 
