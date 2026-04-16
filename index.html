@@ -360,14 +360,33 @@
           metaDiv.textContent = [year ? year + '年' : '', categories, pages ? pages + 'p' : ''].filter(Boolean).join(' ・ ');
           infoDiv.appendChild(metaDiv);
 
-          var btn = document.createElement('button');
-          btn.className = 'btn ' + (already ? 'btn-ghost' : 'btn-accent') + ' btn-sm';
-          btn.textContent = already ? '登録済' : '+ 追加';
-          btn.onclick = function(e) { e.stopPropagation(); addSearchResult(i); };
-
           div.appendChild(coverDiv);
           div.appendChild(infoDiv);
-          div.appendChild(btn);
+
+          if (already) {
+            var badge = document.createElement('span');
+            badge.className = 'btn btn-ghost btn-sm';
+            badge.textContent = '登録済';
+            badge.style.pointerEvents = 'none';
+            div.appendChild(badge);
+          } else {
+            var btnWrap = document.createElement('div');
+            btnWrap.style.cssText = 'display:flex;flex-direction:column;gap:3px;flex-shrink:0;';
+            var statuses = [
+              { key: 'want', label: '📚 読みたい', color: 'var(--want-accent)' },
+              { key: 'reading', label: '📖 読んでる', color: 'var(--reading-accent)' },
+              { key: 'done', label: '✅ 読了', color: 'var(--done-accent)' },
+            ];
+            statuses.forEach(function(s) {
+              var b = document.createElement('button');
+              b.className = 'btn btn-ghost btn-sm';
+              b.textContent = s.label;
+              b.style.cssText = 'font-size:0.65rem;padding:0.2rem 0.5rem;white-space:nowrap;border-color:' + s.color + ';color:' + s.color + ';';
+              b.onclick = function(e) { e.stopPropagation(); addSearchResult(i, s.key); };
+              btnWrap.appendChild(b);
+            });
+            div.appendChild(btnWrap);
+          }
           el.appendChild(div);
         });
       } catch (err) {
@@ -375,7 +394,7 @@
       }
     }
 
-    function addSearchResult(idx) {
+    function addSearchResult(idx, status) {
       const item = window._searchResults?.[idx];
       if (!item) return;
       const v = item.volumeInfo;
@@ -402,7 +421,7 @@
         id: Date.now().toString(),
         title, author: authors, genre,
         award: dbMatch?.aw || '',
-        year, status: 'want', rating: 0,
+        year, status: status || 'want', rating: 0,
         note: '', cover: thumb, synopsis: desc,
       });
 
