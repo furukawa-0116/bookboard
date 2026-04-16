@@ -294,18 +294,26 @@
         return;
       }
       try {
-        const res = await fetch('https://www.googleapis.com/books/v1/volumes?q=' + encodeURIComponent(q) + '&maxResults=20&country=JP');
-        const data = await res.json();
+        var resList = await Promise.all([
+          fetch('https://www.googleapis.com/books/v1/volumes?q=intitle:' + encodeURIComponent(q) + '&maxResults=12').then(function(r){return r.json();}).catch(function(){return {items:[]};}),
+          fetch('https://www.googleapis.com/books/v1/volumes?q=inauthor:' + encodeURIComponent(q) + '&maxResults=12').then(function(r){return r.json();}).catch(function(){return {items:[];};}),
+        ]);
+        var seen = {};
+        var allItems = [];
+        (resList[0].items||[]).concat(resList[1].items||[]).forEach(function(item) {
+          var key = (item.volumeInfo.title||'') + '/' + ((item.volumeInfo.authors||[]).join(','));
+          if (!seen[key]) { seen[key] = true; allItems.push(item); }
+        });
 
-        if (!data.items || data.items.length === 0) {
+        if (allItems.length === 0) {
           el.innerHTML = '<div class="search-empty">見つかりませんでした。別のキーワードで試してください。</div>';
           return;
         }
 
-        window._searchResults = data.items;
+        window._searchResults = allItems;
         el.innerHTML = '';
 
-        data.items.forEach(function(item, i) {
+        allItems.forEach(function(item, i) {
           var v = item.volumeInfo;
           var title = v.title || '';
           var authors = (v.authors || []).join(', ');
