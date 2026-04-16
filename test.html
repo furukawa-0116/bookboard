@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>API Test</title></head>
+<body>
+  <h2>Google Books API Test</h2>
+  <input id="q" value="凪良ゆう" style="padding:8px;font-size:16px;">
+  <button onclick="test()" style="padding:8px 16px;font-size:16px;">Test</button>
+  <pre id="out" style="margin-top:16px;background:#f0f0f0;padding:16px;max-height:400px;overflow:auto;"></pre>
+  <script>
+    async function test() {
+      const q = document.getElementById('q').value;
+      const out = document.getElementById('out');
+      out.textContent = 'Loading...';
+      try {
+        const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=5&country=JP`;
+        out.textContent = 'Fetching: ' + url + '\n\n';
+        const res = await fetch(url);
+        out.textContent += 'Status: ' + res.status + '\n\n';
+        const data = await res.json();
+        out.textContent += 'Total: ' + data.totalItems + ' items\n\n';
+        if (data.items) {
+          data.items.forEach((item, i) => {
+            const v = item.volumeInfo;
+            out.textContent += `${i+1}. ${v.title} / ${(v.authors||[]).join(', ')} (${v.publishedDate||'?'})\n`;
+          });
+        } else {
+          out.textContent += 'No items found.\n';
+          out.textContent += JSON.stringify(data, null, 2);
+        }
+      } catch (err) {
+        out.textContent = 'ERROR: ' + err.message + '\n\nProtocol: ' + location.protocol + '\nURL: ' + location.href;
+      }
+    }
+  </script>
+</body>
+</html>
