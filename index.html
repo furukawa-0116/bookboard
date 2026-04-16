@@ -285,8 +285,12 @@
       const el = document.getElementById('search-results');
       el.innerHTML = '<div class="search-loading">検索中...</div>';
 
+      if (location.protocol === 'file:') {
+        el.innerHTML = '<div class="search-empty">ローカルファイルでは検索できません。<br><a href="https://furukawa-0116.github.io/bookboard/" target="_blank" style="color:var(--accent);">こちらのURLで開いてください →</a></div>';
+        return;
+      }
       try {
-        const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&langRestrict=ja&maxResults=12&printType=books`);
+        const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(q)}&maxResults=20&country=JP`);
         const data = await res.json();
 
         if (!data.items || data.items.length === 0) {
