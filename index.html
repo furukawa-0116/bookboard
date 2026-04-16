@@ -296,7 +296,7 @@
       try {
         var resList = await Promise.all([
           fetch('https://www.googleapis.com/books/v1/volumes?q=intitle:' + encodeURIComponent(q) + '&maxResults=12').then(function(r){return r.json();}).catch(function(){return {items:[]};}),
-          fetch('https://www.googleapis.com/books/v1/volumes?q=inauthor:' + encodeURIComponent(q) + '&maxResults=12').then(function(r){return r.json();}).catch(function(){return {items:[];};}),
+          fetch('https://www.googleapis.com/books/v1/volumes?q=inauthor:' + encodeURIComponent(q) + '&maxResults=12').then(function(r){return r.json();}).catch(function(){return {items:[]};}),
         ]);
         var seen = {};
         var allItems = [];
