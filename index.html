@@ -1596,11 +1596,34 @@
         return {
           id: (Date.now() + i).toString(), title: b.t, author: b.a, genre: b.g,
           award: b.aw||'', year: b.y, status: 'done', doneDate: b.d, rating: b.r,
-          note: '', cover: '', synopsis: b.s||'',
+          note: '', cover: b.cover||'', synopsis: b.s||'',
         };
       });
       save(); closeModal('modal-demo'); renderBoard();
-      alert(profile.name + ' のデモデータ ' + books.length + '冊を登録しました！');
+      alert(profile.name + ' のデモデータ ' + books.length + '冊を登録しました！\n表紙画像を取得中...');
+      fetchCoversInBackground();
+    }
+
+    // ===== FETCH COVERS =====
+    async function fetchCoversInBackground() {
+      var noCover = books.filter(function(b){return !b.cover;});
+      var updated = 0;
+      for (var i = 0; i < noCover.length; i++) {
+        try {
+          var q = encodeURIComponent(noCover[i].title + ' ' + noCover[i].author);
+          var res = await fetch('https://www.googleapis.com/books/v1/volumes?q=intitle:' + q + '&maxResults=1');
+          var data = await res.json();
+          if (data.items && data.items[0] && data.items[0].volumeInfo.imageLinks) {
+            noCover[i].cover = data.items[0].volumeInfo.imageLinks.thumbnail.replace('http:', 'https:');
+            updated++;
+          }
+        } catch(e) {}
+        // Rate limit: wait 200ms between requests
+        if (i < noCover.length - 1) await new Promise(function(r){setTimeout(r, 200);});
+        // Save and re-render every 10 books
+        if (updated > 0 && updated % 10 === 0) { save(); renderBoard(); }
+      }
+      if (updated > 0) { save(); renderBoard(); }
     }
 
     // ===== INIT =====
