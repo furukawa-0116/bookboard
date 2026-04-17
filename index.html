@@ -1578,14 +1578,15 @@
       if (!profile) return;
       if (books.length > 0 && !confirm('既存データを上書きしますか？')) return;
 
-      // Build weighted pool
-      var pool = allDemoBooks.slice();
-      // Also add bookDB entries not already in pool
-      bookDB.forEach(function(d) {
-        if (!pool.find(function(p){return p.t===d.t;})) {
-          pool.push({t:d.t,a:d.a,g:d.g,aw:d.aw||'',y:d.y,d:'',r:3});
-        }
-      });
+      // Build weighted pool: use allDemoBooks, and only add bookDB books if pool is too small
+      // This keeps most bookDB books available for recommendations
+      var bookDBTitles = {};
+      bookDB.forEach(function(d){ bookDBTitles[d.t] = true; });
+      // First: demo books that are NOT in bookDB (these won't affect recommendations)
+      var poolA = allDemoBooks.filter(function(b){ return !bookDBTitles[b.t]; });
+      // Second: demo books that ARE in bookDB (use sparingly)
+      var poolB = allDemoBooks.filter(function(b){ return bookDBTitles[b.t]; });
+      var pool = poolA.concat(poolB);
 
       // Score each book by profile preference
       pool.forEach(function(b) {
@@ -1593,8 +1594,8 @@
       });
       pool.sort(function(a,b){return b._score - a._score;});
 
-      // Pick top 100
-      var picked = pool.slice(0, 100);
+      // Pick top 60 (keep bookDB books available for recommendations)
+      var picked = pool.slice(0, 60);
 
       // Assign dates spread over 16 months
       var startDate = new Date('2025-01-01');
