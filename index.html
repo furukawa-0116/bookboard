@@ -265,6 +265,7 @@
       <button class="btn btn-outline btn-sm" onclick="openSearch()">🔍 <span class="btn-label">検索</span></button>
       <button class="btn btn-outline btn-sm" onclick="openAddBook()">✏️ <span class="btn-label">追加</span></button>
       <button class="btn btn-outline btn-sm" onclick="loadDemo()">🎲</button>
+      <button class="btn btn-outline btn-sm" id="cover-btn" onclick="fetchCoversInBackground()">🖼️</button>
       <button class="btn btn-outline btn-sm" onclick="exportData()">📥</button>
       <button class="btn btn-outline btn-sm" onclick="document.getElementById('import-file').click()">📤</button>
       <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
@@ -1718,34 +1719,47 @@
     }
 
     // ===== FETCH COVERS =====
+    var fetchingCovers = false;
     async function fetchCoversInBackground() {
+      if (fetchingCovers) return;
       var noCover = books.filter(function(b){return !b.cover;});
-      if (!noCover.length) return;
-      var updated = 0;
-      var errors = 0;
+      if (!noCover.length) { alert('全ての本に表紙があります'); return; }
+      fetchingCovers = true;
+      var btn = document.getElementById('cover-btn');
+      var updated = 0; var failed = 0; var total = noCover.length;
+      if (btn) btn.textContent = '⏳ 0/' + total;
+
       for (var i = 0; i < noCover.length; i++) {
-        if (errors >= 3) break; // Stop if too many errors (quota likely exceeded)
+        if (failed >= 5) break;
         try {
-          // Use title only for intitle: search (more accurate)
           var q = encodeURIComponent(noCover[i].title);
           var res = await fetch('https://www.googleapis.com/books/v1/volumes?q=intitle:' + q + '&maxResults=1');
-          if (res.status === 429) { errors++; await new Promise(function(r){setTimeout(r,2000);}); continue; }
+          if (res.status === 429) {
+            // Rate limited - wait 3 seconds and retry once
+            await new Promise(function(r){setTimeout(r,3000);});
+            res = await fetch('https://www.googleapis.com/books/v1/volumes?q=intitle:' + q + '&maxResults=1');
+            if (res.status === 429) { failed++; continue; }
+          }
           var data = await res.json();
           if (data.items && data.items[0]) {
             var imgs = data.items[0].volumeInfo.imageLinks;
             if (imgs && imgs.thumbnail) {
               noCover[i].cover = imgs.thumbnail.replace('http:', 'https:');
               updated++;
-              errors = 0; // Reset error count on success
+              failed = 0;
             }
           }
-        } catch(e) { errors++; }
-        // Rate limit: wait 500ms between requests
-        await new Promise(function(r){setTimeout(r, 500);});
-        // Save and re-render every 5 books
+        } catch(e) { failed++; }
+        if (btn) btn.textContent = '⏳ ' + (i+1) + '/' + total;
+        // 1 second between requests to avoid rate limits
+        await new Promise(function(r){setTimeout(r, 1000);});
+        // Save every 5
         if (updated > 0 && updated % 5 === 0) { save(); renderBoard(); }
       }
       if (updated > 0) { save(); renderBoard(); }
+      fetchingCovers = false;
+      if (btn) btn.textContent = '🖼️';
+      alert('表紙取得完了: ' + updated + '/' + total + '冊' + (failed >= 5 ? '（API制限で中断）' : ''));
     }
 
     // ===== INIT =====
