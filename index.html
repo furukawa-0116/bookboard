@@ -687,7 +687,7 @@
       var periodGenre = {};
       done.forEach(function(b) {
         if (b.doneDate && b.genre) {
-          var q = b.doneDate.slice(0,4) + '-' + (b.doneDate.slice(5,7) <= '03' ? 'Q1' : b.doneDate.slice(5,7) <= '06' ? 'Q2' : b.doneDate.slice(5,7) <= '09' ? 'Q3' : 'Q4');
+          var q = b.doneDate.slice(0,7);
           if (!periodGenre[q]) periodGenre[q] = {};
           periodGenre[q][b.genre] = (periodGenre[q][b.genre]||0) + 1;
         }
@@ -695,7 +695,7 @@
       var periodKeys = Object.keys(periodGenre).sort();
       var periodGenreHtml = '';
       if (periodKeys.length) {
-        periodGenreHtml = '<div class="chart-card"><div class="chart-title">時期別ジャンル分布（四半期）</div>';
+        periodGenreHtml = '<div class="chart-card"><div class="chart-title">時期別ジャンル分布（月別）</div>';
         periodKeys.forEach(function(pk) {
           var entries = Object.entries(periodGenre[pk]).sort(function(a,b){return b[1]-a[1];});
           var pMax = entries.length ? entries[0][1] : 1;
@@ -708,7 +708,7 @@
       var periodGenreRating = {};
       done.forEach(function(b) {
         if (b.doneDate && b.genre && b.rating) {
-          var q = b.doneDate.slice(0,4) + '-' + (b.doneDate.slice(5,7) <= '03' ? 'Q1' : b.doneDate.slice(5,7) <= '06' ? 'Q2' : b.doneDate.slice(5,7) <= '09' ? 'Q3' : 'Q4');
+          var q = b.doneDate.slice(0,7);
           var key = q + '/' + b.genre;
           if (!periodGenreRating[key]) periodGenreRating[key] = { sum:0, count:0, period:q, genre:b.genre };
           periodGenreRating[key].sum += b.rating;
@@ -718,7 +718,7 @@
       var pgrKeys = Object.keys(periodGenreRating).sort();
       var pgrHtml = '';
       if (pgrKeys.length) {
-        pgrHtml = '<div class="chart-card"><div class="chart-title">時期別ジャンル評価（四半期）</div>';
+        pgrHtml = '<div class="chart-card"><div class="chart-title">時期別ジャンル評価（月別）</div>';
         var currentPeriod = '';
         pgrKeys.forEach(function(k) {
           var d = periodGenreRating[k];
