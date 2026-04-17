@@ -105,6 +105,15 @@
 
     /* Stats */
     .stats-section { padding: 1.5rem; }
+    .stats-tabs { display: flex; gap: 0.3rem; margin-bottom: 1.2rem; flex-wrap: wrap; }
+    .stats-tab {
+      padding: 0.45rem 0.9rem; font-size: 0.78rem; color: var(--text3); cursor: pointer;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 2rem;
+      transition: all 0.15s; font-weight: 600;
+    }
+    .stats-tab:hover { border-color: var(--accent); color: var(--accent); }
+    .stats-tab.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .stats-panel { display: none; } .stats-panel.active { display: block; }
     .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 0.8rem; margin-bottom: 1.5rem; }
     .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 0.5rem; padding: 1rem; text-align: center; }
     .stat-val { font-size: 2rem; font-weight: 800; color: var(--accent); } .stat-label { font-size: 0.72rem; color: var(--text3); margin-top: 0.2rem; }
@@ -640,6 +649,13 @@
       }).join('');
     }
 
+    function switchStatsTab(btn, panelId) {
+      btn.parentElement.querySelectorAll('.stats-tab').forEach(function(t){t.classList.remove('active');});
+      btn.classList.add('active');
+      document.querySelectorAll('.stats-panel').forEach(function(p){p.classList.remove('active');});
+      document.getElementById(panelId).classList.add('active');
+    }
+
     function renderGenreMonthHeatmap(done) {
       // Collect all months and genres
       var monthSet = {};
@@ -831,7 +847,17 @@
       var authorHtml = '<div class="chart-card"><div class="chart-title">著者ランキング</div>' + barChart(authorSorted, authorMax) + '</div>';
 
       document.getElementById('stats-content').innerHTML = '<div class="stats-section">' +
-        overviewHtml + monthHtml + renderGenreMonthHeatmap(done) + ratingHtml + grHtml + genreHtml + periodGenreHtml + pgrHtml + authorHtml +
+        overviewHtml +
+        '<div class="stats-tabs">' +
+          '<button class="stats-tab active" onclick="switchStatsTab(this,\'sp-timeline\')">📈 時系列</button>' +
+          '<button class="stats-tab" onclick="switchStatsTab(this,\'sp-rating\')">⭐ 評価</button>' +
+          '<button class="stats-tab" onclick="switchStatsTab(this,\'sp-genre\')">📚 ジャンル</button>' +
+          '<button class="stats-tab" onclick="switchStatsTab(this,\'sp-author\')">✍ 著者</button>' +
+        '</div>' +
+        '<div class="stats-panel active" id="sp-timeline">' + monthHtml + renderGenreMonthHeatmap(done) + '</div>' +
+        '<div class="stats-panel" id="sp-rating">' + ratingHtml + grHtml + pgrHtml + '</div>' +
+        '<div class="stats-panel" id="sp-genre">' + genreHtml + periodGenreHtml + '</div>' +
+        '<div class="stats-panel" id="sp-author">' + authorHtml + '</div>' +
         '</div>';
     }
 
