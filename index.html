@@ -269,6 +269,16 @@
     </div>
   </div>
 
+  <!-- Demo Modal -->
+  <div class="modal-overlay" id="modal-demo" onclick="if(event.target===this)closeModal('modal-demo')">
+    <div class="modal" style="max-width:560px;">
+      <button class="modal-close" onclick="closeModal('modal-demo')">✕</button>
+      <div class="modal-title">🎲 デモデータを選択</div>
+      <div style="font-size:0.78rem;color:var(--text3);margin-bottom:1rem;">読書傾向のパターンを選ぶと、100冊のデモデータが読了に登録されます。</div>
+      <div id="demo-list" style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;"></div>
+    </div>
+  </div>
+
   <!-- Search Modal -->
   <div class="modal-overlay" id="modal-search" onclick="if(event.target===this)closeModal('modal-search')">
     <div class="modal" style="max-width:600px;">
@@ -1212,9 +1222,7 @@
     }
 
     // ===== DEMO DATA =====
-    function loadDemo() {
-      if (books.length > 0 && !confirm('既存データを上書きしますか？')) return;
-      var demoBooks = [
+    var allDemoBooks = [
         {t:'汝、星のごとく',a:'凪良ゆう',g:'恋愛',aw:'本屋大賞2023',y:2022,d:'2025-01-05',r:5},
         {t:'流浪の月',a:'凪良ゆう',g:'ヒューマンドラマ',aw:'本屋大賞2020',y:2019,d:'2025-01-12',r:5},
         {t:'52ヘルツのクジラたち',a:'町田そのこ',g:'ヒューマンドラマ',aw:'本屋大賞2021',y:2020,d:'2025-01-20',r:4},
@@ -1323,11 +1331,90 @@
           note: '', cover: '', synopsis: '',
         };
       });
-      save(); renderBoard(); alert('デモデータ ' + books.length + ' 冊を読了に登録しました！');
+    ];
+
+    var demoProfiles = [
+      {id:'mystery', name:'🔍 ミステリー読み', desc:'東野圭吾・伊坂幸太郎中心', genres:{'ミステリー':5,'SF・ファンタジー':2,'社会派':1,'ヒューマンドラマ':1}, ratingBoost:{'ミステリー':1}},
+      {id:'emotion', name:'💧 感動・恋愛派', desc:'凪良ゆう・瀬尾まいこ中心', genres:{'ヒューマンドラマ':4,'恋愛':4,'青春':2,'社会派':1}, ratingBoost:{'恋愛':1,'ヒューマンドラマ':1}},
+      {id:'fantasy', name:'🌌 SF・ファンタジー好き', desc:'上橋菜穂子・森見登美彦中心', genres:{'SF・ファンタジー':5,'青春':2,'ミステリー':1,'ヒューマンドラマ':1}, ratingBoost:{'SF・ファンタジー':1}},
+      {id:'social', name:'⚖️ 社会派・分析型', desc:'朝井リョウ・湊かなえ中心', genres:{'社会派':4,'ミステリー':3,'ヒューマンドラマ':2,'お仕事':1}, ratingBoost:{'社会派':1,'ミステリー':0.5}},
+      {id:'history', name:'⚔️ 歴史・時代小説派', desc:'司馬遼太郎・和田竜中心', genres:{'歴史・時代':5,'ヒューマンドラマ':2,'お仕事':1,'ミステリー':1}, ratingBoost:{'歴史・時代':1}},
+      {id:'youth', name:'🌱 青春・成長物語派', desc:'住野よる・朝井リョウ中心', genres:{'青春':5,'恋愛':3,'ヒューマンドラマ':2,'お仕事':1}, ratingBoost:{'青春':1,'恋愛':0.5}},
+      {id:'classic', name:'📜 古典・純文学派', desc:'太宰治・芥川龍之介中心', genres:{'ヒューマンドラマ':4,'社会派':2,'恋愛':2,'歴史・時代':2}, ratingBoost:{'ヒューマンドラマ':1}, yearBias:-15},
+      {id:'business', name:'💼 お仕事・ビジネス派', desc:'池井戸潤・瀬尾まいこ中心', genres:{'お仕事':5,'ヒューマンドラマ':3,'社会派':2,'ミステリー':1}, ratingBoost:{'お仕事':1}},
+      {id:'isaka', name:'🎯 伊坂ワールド派', desc:'伊坂幸太郎・森見登美彦中心', genres:{'ミステリー':3,'SF・ファンタジー':4,'青春':2,'ヒューマンドラマ':1}, ratingBoost:{'SF・ファンタジー':1,'ミステリー':0.5}},
+      {id:'balance', name:'📚 バランス型読書家', desc:'幅広いジャンルを均等に', genres:{'ヒューマンドラマ':2,'ミステリー':2,'SF・ファンタジー':2,'青春':2,'恋愛':1,'歴史・時代':1,'お仕事':1,'社会派':1}, ratingBoost:{}},
+    ];
+
+    function loadDemo() {
+      openModal('modal-demo');
+    }
+
+    function applyDemo(profileId) {
+      var profile = demoProfiles.find(function(p){return p.id===profileId;});
+      if (!profile) return;
+      if (books.length > 0 && !confirm('既存データを上書きしますか？')) return;
+
+      // Build weighted pool
+      var pool = allDemoBooks.slice();
+      // Also add bookDB entries not already in pool
+      bookDB.forEach(function(d) {
+        if (!pool.find(function(p){return p.t===d.t;})) {
+          pool.push({t:d.t,a:d.a,g:d.g,aw:d.aw||'',y:d.y,d:'',r:3});
+        }
+      });
+
+      // Score each book by profile preference
+      pool.forEach(function(b) {
+        b._score = (profile.genres[b.g] || 0.5) + Math.random() * 2;
+      });
+      pool.sort(function(a,b){return b._score - a._score;});
+
+      // Pick top 100
+      var picked = pool.slice(0, 100);
+
+      // Assign dates spread over 16 months
+      var startDate = new Date('2025-01-01');
+      picked.forEach(function(b, i) {
+        var d = new Date(startDate.getTime() + i * 4.8 * 24*60*60*1000); // ~5 days apart
+        b.d = d.toISOString().slice(0,10);
+      });
+
+      // Assign ratings based on profile preference
+      picked.forEach(function(b) {
+        var base = 3;
+        var boost = profile.ratingBoost[b.g] || 0;
+        base += boost;
+        base += (Math.random() - 0.3); // some randomness
+        if (profile.yearBias && b.y) {
+          if (b.y < 2005) base += 0.5; // classic bias
+        }
+        b.r = Math.max(1, Math.min(5, Math.round(base)));
+      });
+
+      books = picked.map(function(b, i) {
+        return {
+          id: (Date.now() + i).toString(), title: b.t, author: b.a, genre: b.g,
+          award: b.aw||'', year: b.y, status: 'done', doneDate: b.d, rating: b.r,
+          note: '', cover: '', synopsis: b.s||'',
+        };
+      });
+      save(); closeModal('modal-demo'); renderBoard();
+      alert(profile.name + ' のデモデータ ' + books.length + '冊を登録しました！');
     }
 
     // ===== INIT =====
     document.addEventListener('keydown', e => { if(e.key==='Escape') document.querySelectorAll('.modal-overlay.open').forEach(m=>m.classList.remove('open')); });
+    // Render demo list
+    var demoListEl = document.getElementById('demo-list');
+    if (demoListEl) {
+      demoListEl.innerHTML = demoProfiles.map(function(p) {
+        return '<div style="background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;padding:0.7rem;cursor:pointer;transition:border-color 0.15s;" onmouseover="this.style.borderColor=\'var(--accent)\'" onmouseout="this.style.borderColor=\'var(--border)\'" onclick="applyDemo(\'' + p.id + '\')">' +
+          '<div style="font-size:0.88rem;font-weight:700;">' + p.name + '</div>' +
+          '<div style="font-size:0.7rem;color:var(--text3);margin-top:0.2rem;">' + p.desc + '</div>' +
+        '</div>';
+      }).join('');
+    }
     renderBoard();
   </script>
 </body>
