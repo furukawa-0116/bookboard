@@ -558,17 +558,44 @@
         el.innerHTML = '<div class="search-empty">ローカルファイルでは検索できません。<br><a href="https://furukawa-0116.github.io/bookboard/" target="_blank" style="color:var(--accent);">こちらのURLで開いてください →</a></div>';
         return;
       }
+      // Pause cover fetch during search
+      var wasFetching = fetchingCovers;
+      if (fetchingCovers) { fetchingCovers = false; }
+
       try {
-        var resList = await Promise.all([
-          fetch('https://www.googleapis.com/books/v1/volumes?q=intitle:' + encodeURIComponent(q) + '&maxResults=10').then(function(r){return r.json();}).catch(function(){return {items:[]};}),
-          fetch('https://www.googleapis.com/books/v1/volumes?q=inauthor:' + encodeURIComponent(q) + '&maxResults=10').then(function(r){return r.json();}).catch(function(){return {items:[]};}),
-          fetch('https://www.googleapis.com/books/v1/volumes?q=' + encodeURIComponent(q) + '&maxResults=10').then(function(r){return r.json();}).catch(function(){return {items:[]};}),
-        ]);
+        // Try plain search first (most reliable), then add intitle/inauthor
+        var res1 = await fetch('https://www.googleapis.com/books/v1/volumes?q=' + encodeURIComponent(q) + '&maxResults=15');
+        if (res1.status === 429) {
+          el.innerHTML = '<div class="search-empty">API制限中です。1分ほど待ってから再試行してください。<br><span style="font-size:0.72rem;color:var(--text3);">表紙取得とAPIを共有しているため、取得完了後に検索してください。</span></div>';
+          return;
+        }
+        var data1 = await res1.json();
+        var allItems = data1.items || [];
+
+        // If few results, also try intitle and inauthor
+        if (allItems.length < 5) {
+          try {
+            var res2 = await fetch('https://www.googleapis.com/books/v1/volumes?q=intitle:' + encodeURIComponent(q) + '&maxResults=10');
+            if (res2.ok) {
+              var data2 = await res2.json();
+              (data2.items||[]).forEach(function(item) { allItems.push(item); });
+            }
+          } catch(e2) {}
+          try {
+            var res3 = await fetch('https://www.googleapis.com/books/v1/volumes?q=inauthor:' + encodeURIComponent(q) + '&maxResults=10');
+            if (res3.ok) {
+              var data3 = await res3.json();
+              (data3.items||[]).forEach(function(item) { allItems.push(item); });
+            }
+          } catch(e3) {}
+        }
+
+        // Dedupe
         var seen = {};
-        var allItems = [];
-        (resList[0].items||[]).concat(resList[1].items||[]).concat(resList[2].items||[]).forEach(function(item) {
+        allItems = allItems.filter(function(item) {
           var key = (item.volumeInfo.title||'') + '/' + ((item.volumeInfo.authors||[]).join(','));
-          if (!seen[key]) { seen[key] = true; allItems.push(item); }
+          if (seen[key]) return false;
+          seen[key] = true; return true;
         });
 
         if (allItems.length === 0) {
