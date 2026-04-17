@@ -1714,16 +1714,23 @@
         };
       });
       save(); closeModal('modal-demo'); renderBoard();
-      alert(profile.name + ' のデモデータ ' + books.length + '冊を登録しました！\n表紙画像を取得中...');
-      fetchCoversInBackground();
+      alert(profile.name + ' のデモデータ ' + books.length + '冊を登録しました！');
+      autoFetchCovers();
     }
 
     // ===== FETCH COVERS =====
+    function autoFetchCovers() {
+      var noCover = books.filter(function(b){return !b.cover;});
+      if (noCover.length > 0 && location.protocol !== 'file:') {
+        fetchCoversInBackground(true);
+      }
+    }
+
     var fetchingCovers = false;
-    async function fetchCoversInBackground() {
+    async function fetchCoversInBackground(silent) {
       if (fetchingCovers) return;
       var noCover = books.filter(function(b){return !b.cover;});
-      if (!noCover.length) { alert('全ての本に表紙があります'); return; }
+      if (!noCover.length) { if (!silent) alert('全ての本に表紙があります'); return; }
       fetchingCovers = true;
       var btn = document.getElementById('cover-btn');
       var updated = 0; var failed = 0; var total = noCover.length;
@@ -1759,7 +1766,7 @@
       if (updated > 0) { save(); renderBoard(); }
       fetchingCovers = false;
       if (btn) btn.textContent = '🖼️';
-      alert('表紙取得完了: ' + updated + '/' + total + '冊' + (failed >= 5 ? '（API制限で中断）' : ''));
+      if (!silent) alert('表紙取得完了: ' + updated + '/' + total + '冊' + (failed >= 5 ? '（API制限で中断）' : ''));
     }
 
     // ===== INIT =====
@@ -1775,6 +1782,8 @@
       }).join('');
     }
     renderBoard();
+    // Auto-fetch covers on page load
+    autoFetchCovers();
   </script>
 </body>
 </html>
