@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="80" fill="#2A1810"/>
+  <text x="256" y="200" text-anchor="middle" font-size="160" fill="#C8973F">📖</text>
+  <text x="256" y="340" text-anchor="middle" font-family="Georgia,serif" font-size="72" font-weight="800" fill="#F7F0E3">Book</text>
+  <text x="256" y="410" text-anchor="middle" font-family="Georgia,serif" font-size="72" font-weight="800" fill="#C8973F">Board</text>
+</svg>

@@ -4,6 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>BookBoard - 読書管理</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#2A1810">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="icon.svg">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -144,6 +150,7 @@
   <div class="header">
     <div class="logo"><span>Book</span>Board</div>
     <div class="header-actions">
+      <button class="btn btn-primary btn-sm" id="install-btn" style="display:none;" onclick="installApp()">📲 アプリをインストール</button>
       <button class="btn btn-outline btn-sm" onclick="openSearch()">🔍 本を検索・追加</button>
       <button class="btn btn-outline btn-sm" onclick="openAddBook()">✏️ 手動追加</button>
       <button class="btn btn-outline btn-sm" onclick="exportData()">📥</button>
@@ -637,6 +644,22 @@
     // ===== EXPORT / IMPORT =====
     function exportData() { const b=new Blob([JSON.stringify(books,null,2)],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='bookboard.json'; a.click(); }
     function importData(e) { const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=ev=>{try{books=JSON.parse(ev.target.result);save();renderBoard();alert('Import OK!');}catch{alert('Invalid file');}}; r.readAsText(f); }
+
+    // ===== PWA =====
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(function(){});
+    }
+    var deferredPrompt = null;
+    window.addEventListener('beforeinstallprompt', function(e) {
+      e.preventDefault();
+      deferredPrompt = e;
+      document.getElementById('install-btn').style.display = 'inline-block';
+    });
+    function installApp() {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(function() { deferredPrompt = null; document.getElementById('install-btn').style.display = 'none'; });
+    }
 
     // ===== INIT =====
     document.addEventListener('keydown', e => { if(e.key==='Escape') document.querySelectorAll('.modal-overlay.open').forEach(m=>m.classList.remove('open')); });

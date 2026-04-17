@@ -1,0 +1,16 @@
+{
+  "name": "BookBoard - 読書管理",
+  "short_name": "BookBoard",
+  "description": "読んだ本をボード形式で管理。おすすめ機能付き。",
+  "start_url": "/bookboard/",
+  "display": "standalone",
+  "background_color": "#F5F0E8",
+  "theme_color": "#2A1810",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}
