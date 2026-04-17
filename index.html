@@ -191,7 +191,8 @@
         <div class="form-group"><label class="form-label">受賞歴</label><input class="form-input" id="f-award" placeholder="例: 本屋大賞, 直木賞"></div>
         <div class="form-group"><label class="form-label">出版年</label><input class="form-input" id="f-year" type="number" placeholder="2023"></div>
         <div class="form-group"><label class="form-label">ステータス</label><select class="form-select" id="f-status"><option value="want">読みたい</option><option value="reading">読んでる</option><option value="done">読了</option></select></div>
-        <div class="form-group full"><label class="form-label">評価</label><div class="rating-input" id="f-rating"></div></div>
+        <div class="form-group"><label class="form-label">読了日</label><input class="form-input" id="f-donedate" type="date"></div>
+        <div class="form-group full"><label class="form-label">評価（5段階）</label><div class="rating-input" id="f-rating"></div></div>
         <div class="form-group full"><label class="form-label">メモ・感想</label><textarea class="form-textarea" id="f-note" placeholder="自由にメモ"></textarea></div>
       </div>
       <input type="hidden" id="f-id">
@@ -474,14 +475,14 @@
     let dragId = null;
     function dragStart(e, id) { dragId = id; e.dataTransfer.effectAllowed = 'move'; e.target.classList.add('dragging'); }
     function dragOver(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
-    function drop(e, status) { e.preventDefault(); e.currentTarget.classList.remove('drag-over'); if(!dragId) return; const b = books.find(x=>x.id===dragId); if(b) { b.status = status; save(); renderBoard(); } dragId = null; }
+    function drop(e, status) { e.preventDefault(); e.currentTarget.classList.remove('drag-over'); if(!dragId) return; const b = books.find(x=>x.id===dragId); if(b) { b.status = status; if(status==='done'&&!b.doneDate) b.doneDate=new Date().toISOString().slice(0,10); save(); renderBoard(); } dragId = null; }
     document.addEventListener('dragend', () => { document.querySelectorAll('.drag-over').forEach(el=>el.classList.remove('drag-over')); document.querySelectorAll('.dragging').forEach(el=>el.classList.remove('dragging')); });
 
     // ===== ADD / EDIT BOOK =====
     function openAddBook() {
       editingId = null; ratingVal = 0;
       document.getElementById('modal-add-title').textContent = '本を追加';
-      ['f-title','f-author','f-award','f-note','f-cover','f-synopsis'].forEach(id => document.getElementById(id).value = '');
+      ['f-title','f-author','f-award','f-note','f-cover','f-synopsis','f-donedate'].forEach(id => document.getElementById(id).value = '');
       document.getElementById('f-genre').value = ''; document.getElementById('f-year').value = ''; document.getElementById('f-status').value = 'want'; document.getElementById('f-id').value = '';
       renderRatingInput(); openModal('modal-add');
     }
@@ -490,7 +491,7 @@
       document.getElementById('modal-add-title').textContent = '本を編集';
       document.getElementById('f-title').value = b.title; document.getElementById('f-author').value = b.author; document.getElementById('f-genre').value = b.genre || '';
       document.getElementById('f-award').value = b.award || ''; document.getElementById('f-year').value = b.year || ''; document.getElementById('f-status').value = b.status;
-      document.getElementById('f-note').value = b.note || ''; document.getElementById('f-id').value = b.id;
+      document.getElementById('f-note').value = b.note || ''; document.getElementById('f-donedate').value = b.doneDate || ''; document.getElementById('f-id').value = b.id;
       document.getElementById('f-cover').value = b.cover || ''; document.getElementById('f-synopsis').value = b.synopsis || '';
       renderRatingInput(); openModal('modal-add'); closeModal('modal-detail');
     }
@@ -499,7 +500,7 @@
     }
     function saveBook() {
       const title = document.getElementById('f-title').value.trim(); if (!title) return;
-      const data = { title, author: document.getElementById('f-author').value.trim(), genre: document.getElementById('f-genre').value, award: document.getElementById('f-award').value.trim(), year: Number(document.getElementById('f-year').value) || 0, status: document.getElementById('f-status').value, rating: ratingVal, note: document.getElementById('f-note').value.trim(), cover: document.getElementById('f-cover').value, synopsis: document.getElementById('f-synopsis').value };
+      const data = { title, author: document.getElementById('f-author').value.trim(), genre: document.getElementById('f-genre').value, award: document.getElementById('f-award').value.trim(), year: Number(document.getElementById('f-year').value) || 0, status: document.getElementById('f-status').value, doneDate: document.getElementById('f-donedate').value, rating: ratingVal, note: document.getElementById('f-note').value.trim(), cover: document.getElementById('f-cover').value, synopsis: document.getElementById('f-synopsis').value };
       if (editingId) { const b = books.find(x=>x.id===editingId); if(b) Object.assign(b, data); }
       else { data.id = Date.now().toString(); books.push(data); }
       save(); closeModal('modal-add'); renderBoard();
@@ -608,37 +609,139 @@
     }
 
     // ===== STATS =====
+    function barChart(data, maxVal) {
+      if (!data.length) return '<div style="color:var(--text3);font-size:0.82rem;padding:0.5rem;">データなし</div>';
+      var m = maxVal || Math.max(...data.map(function(d){return d[1];}), 1);
+      return data.map(function(d) {
+        return '<div class="bar-row"><div class="bar-label">' + d[0] + '</div><div class="bar-track"><div class="bar-fill" style="width:' + (d[1]/m*100) + '%;' + (d[2]||'') + '"></div></div><div class="bar-val">' + d[1] + '</div></div>';
+      }).join('');
+    }
+
     function renderStats() {
-      const done = books.filter(b=>b.status==='done');
-      const total = books.length;
-      const avgRating = done.length ? (done.reduce((s,b)=>s+(b.rating||0),0)/done.filter(b=>b.rating).length).toFixed(1) : '-';
+      var done = books.filter(function(b){return b.status==='done';});
+      var rated = done.filter(function(b){return b.rating;});
+      var total = books.length;
+      var avgRating = rated.length ? (rated.reduce(function(s,b){return s+b.rating;},0)/rated.length).toFixed(1) : '-';
 
-      const genreCount = {}; books.forEach(b => { if(b.genre) genreCount[b.genre]=(genreCount[b.genre]||0)+1; });
-      const genreSorted = Object.entries(genreCount).sort((a,b)=>b[1]-a[1]);
-      const genreMax = genreSorted[0]?.[1] || 1;
+      // === 1. Overview ===
+      var overviewHtml = '<div class="stats-grid">' +
+        '<div class="stat-card"><div class="stat-val">' + total + '</div><div class="stat-label">Total</div></div>' +
+        '<div class="stat-card"><div class="stat-val" style="color:var(--blue);">' + books.filter(function(b){return b.status==='want';}).length + '</div><div class="stat-label">読みたい</div></div>' +
+        '<div class="stat-card"><div class="stat-val" style="color:var(--reading-accent);">' + books.filter(function(b){return b.status==='reading';}).length + '</div><div class="stat-label">読んでる</div></div>' +
+        '<div class="stat-card"><div class="stat-val" style="color:var(--green);">' + done.length + '</div><div class="stat-label">読了</div></div>' +
+        '<div class="stat-card"><div class="stat-val">' + avgRating + '</div><div class="stat-label">平均評価</div></div>' +
+        '</div>';
 
-      const authorCount = {}; books.forEach(b => { if(b.author) authorCount[b.author]=(authorCount[b.author]||0)+1; });
-      const authorSorted = Object.entries(authorCount).sort((a,b)=>b[1]-a[1]).slice(0,8);
-      const authorMax = authorSorted[0]?.[1] || 1;
+      // === 2. 月別読了推移 ===
+      var monthMap = {};
+      done.forEach(function(b) {
+        var key = b.doneDate ? b.doneDate.slice(0,7) : 'unknown';
+        monthMap[key] = (monthMap[key]||0) + 1;
+      });
+      var monthSorted = Object.entries(monthMap).filter(function(x){return x[0]!=='unknown';}).sort(function(a,b){return a[0].localeCompare(b[0]);});
+      var monthMax = Math.max.apply(null, monthSorted.map(function(x){return x[1];})) || 1;
+      var monthHtml = '<div class="chart-card"><div class="chart-title">月別読了推移</div>' +
+        (monthSorted.length ? barChart(monthSorted, monthMax) : '<div style="color:var(--text3);font-size:0.82rem;padding:0.5rem;">読了した本に「読了日」を設定すると表示されます</div>') +
+        '</div>';
 
-      const yearCount = {}; books.forEach(b => { if(b.year) { const decade = Math.floor(b.year/10)*10+'s'; yearCount[decade]=(yearCount[decade]||0)+1; }});
-      const yearSorted = Object.entries(yearCount).sort((a,b)=>a[0].localeCompare(b[0]));
-      const yearMax = Math.max(...yearSorted.map(x=>x[1]), 1);
+      // === 3. 評価分布（5段階） ===
+      var ratingDist = [0,0,0,0,0];
+      rated.forEach(function(b) { ratingDist[b.rating-1]++; });
+      var ratingMax = Math.max.apply(null, ratingDist) || 1;
+      var ratingData = ratingDist.map(function(c,i) { return ['★'.repeat(i+1) + ' (' + (i+1) + ')', c]; });
+      var ratingHtml = '<div class="chart-card"><div class="chart-title">評価分布（5段階）</div>' + barChart(ratingData, ratingMax) + '</div>';
 
-      document.getElementById('stats-content').innerHTML = `
-        <div class="stats-section">
-          <div class="stats-grid">
-            <div class="stat-card"><div class="stat-val">${total}</div><div class="stat-label">Total</div></div>
-            <div class="stat-card"><div class="stat-val" style="color:var(--blue);">${books.filter(b=>b.status==='want').length}</div><div class="stat-label">読みたい</div></div>
-            <div class="stat-card"><div class="stat-val" style="color:var(--reading-accent);">${books.filter(b=>b.status==='reading').length}</div><div class="stat-label">読んでる</div></div>
-            <div class="stat-card"><div class="stat-val" style="color:var(--green);">${done.length}</div><div class="stat-label">読了</div></div>
-            <div class="stat-card"><div class="stat-val">${avgRating}</div><div class="stat-label">平均評価</div></div>
-          </div>
-          <div class="chart-card"><div class="chart-title">ジャンル分布</div>${genreSorted.map(([g,c])=>`<div class="bar-row"><div class="bar-label">${g}</div><div class="bar-track"><div class="bar-fill" style="width:${c/genreMax*100}%"></div></div><div class="bar-val">${c}</div></div>`).join('')}</div>
-          <div class="chart-card"><div class="chart-title">著者ランキング</div>${authorSorted.map(([a,c])=>`<div class="bar-row"><div class="bar-label">${a}</div><div class="bar-track"><div class="bar-fill" style="width:${c/authorMax*100}%"></div></div><div class="bar-val">${c}</div></div>`).join('')}</div>
-          <div class="chart-card"><div class="chart-title">年代分布</div>${yearSorted.map(([y,c])=>`<div class="bar-row"><div class="bar-label">${y}</div><div class="bar-track"><div class="bar-fill" style="width:${c/yearMax*100}%"></div></div><div class="bar-val">${c}</div></div>`).join('')}</div>
-        </div>
-      `;
+      // === 4. ジャンル別評価分析 ===
+      var genreRating = {};
+      var genreCount2 = {};
+      done.forEach(function(b) {
+        if (b.genre) {
+          if (!genreRating[b.genre]) { genreRating[b.genre] = { sum:0, count:0 }; }
+          if (b.rating) { genreRating[b.genre].sum += b.rating; genreRating[b.genre].count++; }
+          genreCount2[b.genre] = (genreCount2[b.genre]||0) + 1;
+        }
+      });
+      var genreRatingSorted = Object.entries(genreRating)
+        .filter(function(x){return x[1].count > 0;})
+        .map(function(x){return [x[0], Math.round(x[1].sum/x[1].count*10)/10];})
+        .sort(function(a,b){return b[1]-a[1];});
+      var grHtml = '<div class="chart-card"><div class="chart-title">ジャンル別 平均評価</div>' +
+        (genreRatingSorted.length ?
+          genreRatingSorted.map(function(d) {
+            var pct = d[1] / 5 * 100;
+            var color = d[1] >= 4 ? 'background:linear-gradient(90deg,var(--green),#66BB6A)' : d[1] >= 3 ? '' : 'background:linear-gradient(90deg,var(--red),#EF5350)';
+            return '<div class="bar-row"><div class="bar-label">' + d[0] + '</div><div class="bar-track"><div class="bar-fill" style="width:' + pct + '%;' + color + '"></div></div><div class="bar-val">' + d[1] + '</div></div>';
+          }).join('')
+        : '<div style="color:var(--text3);font-size:0.82rem;padding:0.5rem;">読了した本に評価をつけると表示されます</div>') +
+        '</div>';
+
+      // === 5. ジャンル分布 ===
+      var genreAll = {};
+      books.forEach(function(b){if(b.genre) genreAll[b.genre]=(genreAll[b.genre]||0)+1;});
+      var genreSorted = Object.entries(genreAll).sort(function(a,b){return b[1]-a[1];});
+      var genreMax = genreSorted.length ? genreSorted[0][1] : 1;
+      var genreHtml = '<div class="chart-card"><div class="chart-title">ジャンル分布（全体）</div>' + barChart(genreSorted, genreMax) + '</div>';
+
+      // === 6. 時期別ジャンル分布 ===
+      var periodGenre = {};
+      done.forEach(function(b) {
+        if (b.doneDate && b.genre) {
+          var q = b.doneDate.slice(0,4) + '-' + (b.doneDate.slice(5,7) <= '03' ? 'Q1' : b.doneDate.slice(5,7) <= '06' ? 'Q2' : b.doneDate.slice(5,7) <= '09' ? 'Q3' : 'Q4');
+          if (!periodGenre[q]) periodGenre[q] = {};
+          periodGenre[q][b.genre] = (periodGenre[q][b.genre]||0) + 1;
+        }
+      });
+      var periodKeys = Object.keys(periodGenre).sort();
+      var periodGenreHtml = '';
+      if (periodKeys.length) {
+        periodGenreHtml = '<div class="chart-card"><div class="chart-title">時期別ジャンル分布（四半期）</div>';
+        periodKeys.forEach(function(pk) {
+          var entries = Object.entries(periodGenre[pk]).sort(function(a,b){return b[1]-a[1];});
+          var pMax = entries.length ? entries[0][1] : 1;
+          periodGenreHtml += '<div style="font-size:0.78rem;font-weight:700;color:var(--accent);margin:0.8rem 0 0.3rem;">' + pk + '</div>' + barChart(entries, pMax);
+        });
+        periodGenreHtml += '</div>';
+      }
+
+      // === 7. 時期別ジャンル評価分布 ===
+      var periodGenreRating = {};
+      done.forEach(function(b) {
+        if (b.doneDate && b.genre && b.rating) {
+          var q = b.doneDate.slice(0,4) + '-' + (b.doneDate.slice(5,7) <= '03' ? 'Q1' : b.doneDate.slice(5,7) <= '06' ? 'Q2' : b.doneDate.slice(5,7) <= '09' ? 'Q3' : 'Q4');
+          var key = q + '/' + b.genre;
+          if (!periodGenreRating[key]) periodGenreRating[key] = { sum:0, count:0, period:q, genre:b.genre };
+          periodGenreRating[key].sum += b.rating;
+          periodGenreRating[key].count++;
+        }
+      });
+      var pgrKeys = Object.keys(periodGenreRating).sort();
+      var pgrHtml = '';
+      if (pgrKeys.length) {
+        pgrHtml = '<div class="chart-card"><div class="chart-title">時期別ジャンル評価（四半期）</div>';
+        var currentPeriod = '';
+        pgrKeys.forEach(function(k) {
+          var d = periodGenreRating[k];
+          var avg = Math.round(d.sum / d.count * 10) / 10;
+          if (d.period !== currentPeriod) {
+            currentPeriod = d.period;
+            pgrHtml += '<div style="font-size:0.78rem;font-weight:700;color:var(--accent);margin:0.8rem 0 0.3rem;">' + d.period + '</div>';
+          }
+          var color = avg >= 4 ? 'background:linear-gradient(90deg,var(--green),#66BB6A)' : avg >= 3 ? '' : 'background:linear-gradient(90deg,var(--red),#EF5350)';
+          pgrHtml += '<div class="bar-row"><div class="bar-label">' + d.genre + '</div><div class="bar-track"><div class="bar-fill" style="width:' + (avg/5*100) + '%;' + color + '"></div></div><div class="bar-val">' + avg + '</div></div>';
+        });
+        pgrHtml += '</div>';
+      }
+
+      // === 8. 著者ランキング ===
+      var authorCount = {};
+      books.forEach(function(b){if(b.author) authorCount[b.author]=(authorCount[b.author]||0)+1;});
+      var authorSorted = Object.entries(authorCount).sort(function(a,b){return b[1]-a[1];}).slice(0,8);
+      var authorMax = authorSorted.length ? authorSorted[0][1] : 1;
+      var authorHtml = '<div class="chart-card"><div class="chart-title">著者ランキング</div>' + barChart(authorSorted, authorMax) + '</div>';
+
+      document.getElementById('stats-content').innerHTML = '<div class="stats-section">' +
+        overviewHtml + monthHtml + ratingHtml + grHtml + genreHtml + periodGenreHtml + pgrHtml + authorHtml +
+        '</div>';
     }
 
     // ===== EXPORT / IMPORT =====
