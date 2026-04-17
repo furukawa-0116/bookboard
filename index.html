@@ -102,6 +102,12 @@
     .recommend-card { background: var(--surface); border: 1px solid var(--border); border-radius: 0.6rem; padding: 0.8rem; display: flex; gap: 0.7rem; cursor: pointer; transition: box-shadow 0.15s; }
     .recommend-card:hover { box-shadow: 0 3px 12px rgba(0,0,0,0.08); }
     .recommend-reason { font-size: 0.7rem; color: var(--accent); margin-top: 0.3rem; font-weight: 600; }
+    .rec-category { background: var(--surface); border: 1px solid var(--border); border-radius: 0.6rem; margin-bottom: 1rem; overflow: hidden; }
+    .rec-category-header { padding: 0.8rem 1rem; display: flex; align-items: center; gap: 0.6rem; border-bottom: 1px solid var(--border); background: rgba(200,151,63,0.04); }
+    .rec-category-icon { font-size: 1.2rem; }
+    .rec-category-title { font-size: 0.88rem; font-weight: 700; color: var(--text); }
+    .rec-category-desc { font-size: 0.7rem; color: var(--text3); margin-top: 0.1rem; }
+    .rec-category-body { padding: 0.6rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.5rem; }
 
     /* Stats */
     .stats-section { padding: 1.5rem; }
@@ -574,70 +580,199 @@
 
     // ===== RECOMMEND =====
     function renderRecommend() {
-      const done = books.filter(b => b.status === 'done');
-      const registered = new Set(books.map(b => b.title));
-      const available = bookDB.filter(d => !registered.has(d.t));
+      var done = books.filter(function(b){return b.status==='done';});
+      var rated = done.filter(function(b){return b.rating;});
+      var registered = {};
+      books.forEach(function(b){registered[b.title]=true;});
+      var available = bookDB.filter(function(d){return !registered[d.t];});
+      var el = document.getElementById('recommend-content');
 
-      // Genre analysis
-      const genreCount = {}; done.forEach(b => { if(b.genre) genreCount[b.genre] = (genreCount[b.genre]||0)+1; });
-      const topGenres = Object.entries(genreCount).sort((a,b)=>b[1]-a[1]).slice(0,3).map(x=>x[0]);
-
-      // Author analysis
-      const authorCount = {}; done.forEach(b => { if(b.author) authorCount[b.author] = (authorCount[b.author]||0)+1; });
-      const topAuthors = Object.entries(authorCount).sort((a,b)=>b[1]-a[1]).slice(0,3).map(x=>x[0]);
-
-      // Award analysis
-      const likedAwards = new Set(); done.filter(b=>b.rating>=4).forEach(b => { if(b.award) b.award.split(',').forEach(a=>likedAwards.add(a.trim())); });
-
-      // Average rating by genre
-      const avgRating = {}; done.forEach(b => { if(b.genre&&b.rating) { if(!avgRating[b.genre]) avgRating[b.genre]={sum:0,count:0}; avgRating[b.genre].sum+=b.rating; avgRating[b.genre].count++; }});
-
-      // Generate recommendations
-      const recs = [];
-      // By genre
-      topGenres.forEach(g => {
-        available.filter(d=>d.g===g).slice(0,2).forEach(d => recs.push({...d, reason:`「${g}」が好きなあなたに`}));
-      });
-      // By author
-      topAuthors.forEach(a => {
-        available.filter(d=>d.a===a).slice(0,1).forEach(d => recs.push({...d, reason:`${a}の別作品`}));
-      });
-      // By award
-      available.filter(d=>d.aw&&[...likedAwards].some(a=>d.aw.includes(a))).slice(0,3).forEach(d => recs.push({...d, reason:`高評価した作品と同じ受賞歴`}));
-      // Unexplored genre
-      const allGenres = [...new Set(bookDB.map(d=>d.g))];
-      const unexplored = allGenres.filter(g => !genreCount[g]);
-      unexplored.slice(0,1).forEach(g => {
-        available.filter(d=>d.g===g).slice(0,2).forEach(d => recs.push({...d, reason:`まだ読んでない「${g}」ジャンル`}));
-      });
-
-      // Dedupe
-      const seen = new Set(); const unique = recs.filter(r => { if(seen.has(r.t)) return false; seen.add(r.t); return true; });
-
-      const el = document.getElementById('recommend-content');
       if (!done.length) {
-        el.innerHTML = `<div class="recommend-section"><div class="recommend-title">おすすめを表示するには</div><div class="recommend-sub">まず本を「読了」に移動して評価をつけてください。読書傾向を分析しておすすめを提案します。</div><div class="recommend-title">本屋大賞データベースから追加</div><div class="recommend-grid">${bookDB.slice(0,12).map((d,i)=>recCardHTML(d,i)).join('')}</div></div>`;
+        el.innerHTML = '<div class="recommend-section"><div class="recommend-title">おすすめを表示するには</div><div class="recommend-sub">まず本を「読了」に移動して評価をつけてください。</div>' + recDBSection(available) + '</div>';
         return;
       }
 
-      el.innerHTML = `
-        <div class="recommend-section">
-          <div class="recommend-title">あなたへのおすすめ</div>
-          <div class="recommend-sub">読了${done.length}冊の傾向から${unique.length}冊をピックアップ</div>
-          <div class="recommend-grid">${unique.length ? unique.map((d,i)=>recCardHTMLWithReason(d,bookDB.indexOf(bookDB.find(x=>x.t===d.t)))).join('') : '<div style="color:var(--text3);">データベースの本をすべて登録済みです</div>'}</div>
-        </div>
-        <div class="recommend-section">
-          <div class="recommend-title">本屋大賞データベース</div>
-          <div class="recommend-sub">歴代受賞作・ノミネート作品から追加</div>
-          <div class="recommend-grid">${available.slice(0,8).map((d,i)=>recCardHTML(d,bookDB.indexOf(bookDB.find(x=>x.t===d.t)))).join('')}</div>
-        </div>
-      `;
+      // Analysis
+      var genreCount = {}, genreRating = {}, authorRating = {}, genreLastRead = {};
+      done.forEach(function(b) {
+        if (b.genre) {
+          genreCount[b.genre] = (genreCount[b.genre]||0) + 1;
+          if (b.rating) {
+            if (!genreRating[b.genre]) genreRating[b.genre] = {sum:0,count:0};
+            genreRating[b.genre].sum += b.rating; genreRating[b.genre].count++;
+          }
+          if (b.doneDate) {
+            if (!genreLastRead[b.genre] || b.doneDate > genreLastRead[b.genre]) genreLastRead[b.genre] = b.doneDate;
+          }
+        }
+        if (b.author && b.rating) {
+          if (!authorRating[b.author]) authorRating[b.author] = {sum:0,count:0};
+          authorRating[b.author].sum += b.rating; authorRating[b.author].count++;
+        }
+      });
+
+      var categories = [];
+      var usedTitles = {};
+
+      function pickAvail(filter, max) {
+        var res = [];
+        available.forEach(function(d) {
+          if (res.length >= max || usedTitles[d.t]) return;
+          if (filter(d)) { usedTitles[d.t] = true; res.push(d); }
+        });
+        return res;
+      }
+
+      // 1. 高評価著者の別作品
+      var topRatedAuthors = Object.entries(authorRating)
+        .map(function(x){return {a:x[0], avg:x[1].sum/x[1].count};})
+        .filter(function(x){return x.avg >= 4;})
+        .sort(function(a,b){return b.avg - a.avg;});
+      var authorRecs = [];
+      topRatedAuthors.forEach(function(x) {
+        pickAvail(function(d){return d.a === x.a;}, 1).forEach(function(d) {
+          authorRecs.push({d:d, reason: x.a + ' 平均★' + x.avg.toFixed(1)});
+        });
+      });
+      if (authorRecs.length) categories.push({
+        icon:'⭐', title:'高評価著者の別作品', desc:'★4以上つけた著者のまだ読んでない作品',
+        items: authorRecs
+      });
+
+      // 2. 好きなジャンル
+      var topGenres = Object.entries(genreCount).sort(function(a,b){return b[1]-a[1];}).slice(0,3);
+      var genreRecs = [];
+      topGenres.forEach(function(x) {
+        pickAvail(function(d){return d.g === x[0];}, 2).forEach(function(d) {
+          genreRecs.push({d:d, reason: '「' + x[0] + '」' + x[1] + '冊読了'});
+        });
+      });
+      if (genreRecs.length) categories.push({
+        icon:'📚', title:'好きなジャンルから', desc:'よく読むジャンルの未読作品',
+        items: genreRecs
+      });
+
+      // 3. 名作チャレンジ（受賞作で未読）
+      var masterRecs = [];
+      pickAvail(function(d){return d.aw && d.aw.indexOf('ノミネート') === -1;}, 4).forEach(function(d) {
+        masterRecs.push({d:d, reason: d.aw});
+      });
+      if (masterRecs.length) categories.push({
+        icon:'🏆', title:'名作チャレンジ', desc:'受賞作でまだ読んでない名作',
+        items: masterRecs
+      });
+
+      // 4. 季節に合った本
+      var month = new Date().getMonth() + 1;
+      var seasonKeywords = {spring:[3,4,5], summer:[6,7,8], autumn:[9,10,11], winter:[12,1,2]};
+      var seasonBooks = {
+        spring: ['青春','恋愛'], summer: ['ミステリー','SF・ファンタジー'],
+        autumn: ['ヒューマンドラマ','歴史・時代'], winter: ['ヒューマンドラマ','恋愛']
+      };
+      var currentSeason = month<=2?'winter':month<=5?'spring':month<=8?'summer':month<=11?'autumn':'winter';
+      var seasonLabel = {spring:'春',summer:'夏',autumn:'秋',winter:'冬'}[currentSeason];
+      var seasonGenres = seasonBooks[currentSeason];
+      var seasonRecs = [];
+      pickAvail(function(d){return seasonGenres.indexOf(d.g) >= 0;}, 3).forEach(function(d) {
+        seasonRecs.push({d:d, reason: seasonLabel + 'に読みたい「' + d.g + '」'});
+      });
+      if (seasonRecs.length) categories.push({
+        icon:'🌸', title: seasonLabel + 'のおすすめ', desc:'今の季節にぴったりの作品',
+        items: seasonRecs
+      });
+
+      // 5. 読了から遠いジャンル
+      var today = new Date().toISOString().slice(0,10);
+      var staleGenres = Object.entries(genreLastRead)
+        .filter(function(x){
+          var diff = (new Date(today) - new Date(x[1])) / (1000*60*60*24);
+          return diff > 60;
+        })
+        .sort(function(a,b){return a[1].localeCompare(b[1]);});
+      var staleRecs = [];
+      staleGenres.slice(0,2).forEach(function(x) {
+        pickAvail(function(d){return d.g === x[0];}, 1).forEach(function(d) {
+          var months = Math.round((new Date(today) - new Date(x[1])) / (1000*60*60*24*30));
+          staleRecs.push({d:d, reason: x[0] + ' ' + months + 'ヶ月ぶり'});
+        });
+      });
+      if (staleRecs.length) categories.push({
+        icon:'🔄', title:'久しぶりのジャンル', desc:'最近読んでないジャンルをリマインド',
+        items: staleRecs
+      });
+
+      // 6. 評価が低めのジャンルの名作
+      var lowGenres = Object.entries(genreRating)
+        .filter(function(x){return x[1].count >= 2 && x[1].sum/x[1].count < 3.8;})
+        .sort(function(a,b){return (a[1].sum/a[1].count) - (b[1].sum/b[1].count);});
+      var rediscoverRecs = [];
+      lowGenres.slice(0,2).forEach(function(x) {
+        var avg = (x[1].sum/x[1].count).toFixed(1);
+        pickAvail(function(d){return d.g===x[0] && d.aw && d.aw.indexOf('ノミネート')===-1;}, 1).forEach(function(d) {
+          rediscoverRecs.push({d:d, reason: x[0] + '(平均★' + avg + ')の中でも特におすすめ'});
+        });
+      });
+      if (rediscoverRecs.length) categories.push({
+        icon:'💎', title:'ジャンル再発見', desc:'評価が伸びなかったジャンルの隠れた名作',
+        items: rediscoverRecs
+      });
+
+      // 7. まだ読んでないジャンル
+      var allGenres = {};
+      bookDB.forEach(function(d){allGenres[d.g]=true;});
+      var unexplored = Object.keys(allGenres).filter(function(g){return !genreCount[g];});
+      var unexploredRecs = [];
+      unexplored.forEach(function(g) {
+        pickAvail(function(d){return d.g===g;}, 1).forEach(function(d) {
+          unexploredRecs.push({d:d, reason: '未体験の「' + g + '」'});
+        });
+      });
+      if (unexploredRecs.length) categories.push({
+        icon:'🌍', title:'未知のジャンルへ', desc:'まだ読んだことのないジャンルに挑戦',
+        items: unexploredRecs
+      });
+
+      // Render
+      var totalRecs = 0;
+      categories.forEach(function(c){totalRecs += c.items.length;});
+
+      var html = '<div class="recommend-section">' +
+        '<div class="recommend-title">あなたへのおすすめ</div>' +
+        '<div class="recommend-sub">読了' + done.length + '冊の傾向を7つの視点で分析 → ' + totalRecs + '冊をピックアップ</div>';
+
+      categories.forEach(function(cat) {
+        html += '<div class="rec-category">' +
+          '<div class="rec-category-header"><span class="rec-category-icon">' + cat.icon + '</span><div><div class="rec-category-title">' + cat.title + '</div><div class="rec-category-desc">' + cat.desc + '</div></div></div>' +
+          '<div class="rec-category-body">';
+        cat.items.forEach(function(item) {
+          var idx = bookDB.indexOf(bookDB.find(function(x){return x.t===item.d.t;}));
+          html += '<div class="recommend-card" onclick="addFromDB(' + (idx>=0?idx:0) + ')">' +
+            '<div class="book-cover" style="width:45px;height:63px;">📖</div>' +
+            '<div class="book-card-info">' +
+              '<div class="book-card-title">' + item.d.t + '</div>' +
+              '<div class="book-card-author">' + item.d.a + '</div>' +
+              '<div class="book-card-tags"><span class="tag tag-genre">' + item.d.g + '</span>' +
+                (item.d.aw ? '<span class="tag tag-award">' + item.d.aw.split(',')[0] + '</span>' : '') +
+              '</div>' +
+              '<div class="recommend-reason">' + item.reason + '</div>' +
+            '</div></div>';
+        });
+        html += '</div></div>';
+      });
+
+      html += recDBSection(available) + '</div>';
+      el.innerHTML = html;
     }
-    function recCardHTML(d, idx) {
-      return `<div class="recommend-card" onclick="addFromDB(${idx})"><div class="book-cover" style="width:45px;height:63px;">📖</div><div class="book-card-info"><div class="book-card-title">${d.t}</div><div class="book-card-author">${d.a}</div><div class="book-card-tags"><span class="tag tag-genre">${d.g}</span>${d.aw?`<span class="tag tag-award">${d.aw.split(',')[0]}</span>`:''}</div></div></div>`;
-    }
-    function recCardHTMLWithReason(d, idx) {
-      return `<div class="recommend-card" onclick="addFromDB(${idx>=0?idx:0})"><div class="book-cover" style="width:45px;height:63px;">📖</div><div class="book-card-info"><div class="book-card-title">${d.t}</div><div class="book-card-author">${d.a}</div><div class="book-card-tags"><span class="tag tag-genre">${d.g}</span></div><div class="recommend-reason">${d.reason||''}</div></div></div>`;
+
+    function recDBSection(available) {
+      if (!available.length) return '';
+      var html = '<div style="margin-top:1.5rem;"><div class="recommend-title">本屋大賞データベース</div><div class="recommend-sub">歴代受賞作・ノミネート作品から追加</div><div class="recommend-grid">';
+      available.slice(0,8).forEach(function(d) {
+        var idx = bookDB.indexOf(d);
+        html += '<div class="recommend-card" onclick="addFromDB(' + idx + ')"><div class="book-cover" style="width:45px;height:63px;">📖</div><div class="book-card-info"><div class="book-card-title">' + d.t + '</div><div class="book-card-author">' + d.a + '</div><div class="book-card-tags"><span class="tag tag-genre">' + d.g + '</span>' + (d.aw?'<span class="tag tag-award">'+d.aw.split(',')[0]+'</span>':'') + '</div></div></div>';
+      });
+      html += '</div></div>';
+      return html;
     }
 
     // ===== STATS =====
