@@ -152,6 +152,36 @@
     .search-loading { text-align: center; padding: 2rem; color: var(--text3); }
     .search-empty { text-align: center; padding: 2rem; color: var(--text3); font-size: 0.85rem; }
 
+    /* Mood Quiz */
+    .mood-section { padding: 1.5rem; max-width: 600px; margin: 0 auto; }
+    .mood-progress { display: flex; gap: 4px; margin-bottom: 1.5rem; }
+    .mood-progress-dot { flex: 1; height: 4px; border-radius: 2px; background: var(--border); }
+    .mood-progress-dot.done { background: var(--accent); }
+    .mood-progress-dot.current { background: var(--accent); animation: pulse-dot 1s infinite; }
+    @keyframes pulse-dot { 0%,100%{opacity:1;} 50%{opacity:0.5;} }
+    .mood-q-num { font-size: 0.7rem; color: var(--accent); letter-spacing: 0.15em; margin-bottom: 0.5rem; }
+    .mood-q { font-size: 1.1rem; font-weight: 700; color: var(--text); margin-bottom: 1.2rem; line-height: 1.6; }
+    .mood-opts { display: flex; flex-direction: column; gap: 0.5rem; }
+    .mood-opt {
+      padding: 0.8rem 1rem; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 0.5rem; cursor: pointer; transition: all 0.15s; text-align: left;
+      font-size: 0.88rem; color: var(--text);
+    }
+    .mood-opt:hover { border-color: var(--accent); background: rgba(200,151,63,0.04); }
+    .mood-result { background: var(--surface); border: 1px solid var(--border); border-radius: 0.8rem; overflow: hidden; margin-bottom: 1rem; }
+    .mood-result-header { padding: 1.5rem; text-align: center; background: linear-gradient(135deg, #1a3a2a 0%, #2A1810 100%); color: #F7F0E3; }
+    .mood-result-type { font-size: 0.7rem; color: var(--accent); letter-spacing: 0.2em; margin-bottom: 0.3rem; }
+    .mood-result-title { font-size: 1.5rem; font-weight: 800; font-family: Georgia, serif; }
+    .mood-result-sub { font-size: 0.82rem; color: #A09080; margin-top: 0.3rem; }
+    .mood-result-body { padding: 1.2rem; }
+    .mood-result-desc { font-size: 0.85rem; line-height: 1.8; color: var(--text); margin-bottom: 1rem; }
+    .mood-book-card { display: flex; gap: 0.7rem; padding: 0.7rem; border: 1px solid var(--border); border-radius: 0.5rem; margin-bottom: 0.5rem; cursor: pointer; transition: border-color 0.15s; }
+    .mood-book-card:hover { border-color: var(--accent); }
+    .mood-book-title { font-size: 0.85rem; font-weight: 700; color: var(--text); }
+    .mood-book-author { font-size: 0.72rem; color: var(--text3); margin-top: 0.1rem; }
+    .mood-book-reason { font-size: 0.7rem; color: var(--accent); margin-top: 0.2rem; font-weight: 600; }
+    .mood-restart { display: block; margin: 1rem auto 0; }
+
     /* Diagnosis */
     .diag-section { padding: 1.5rem; max-width: 640px; margin: 0 auto; }
     .diag-result { background: var(--surface); border: 1px solid var(--border); border-radius: 1rem; overflow: hidden; margin-bottom: 1.5rem; }
@@ -223,6 +253,7 @@
     <button class="nav-tab" onclick="switchPage(this,'page-recommend')">💡 Recommend</button>
     <button class="nav-tab" onclick="switchPage(this,'page-stats')">📊 Stats</button>
     <button class="nav-tab" onclick="switchPage(this,'page-diagnosis')">🎭 文豪診断</button>
+    <button class="nav-tab" onclick="switchPage(this,'page-mood')">🎯 気分で探す</button>
   </div>
 
   <!-- BOARD -->
@@ -236,6 +267,9 @@
 
   <!-- RECOMMEND -->
   <div class="page" id="page-recommend"><div id="recommend-content"></div></div>
+
+  <!-- MOOD QUIZ -->
+  <div class="page" id="page-mood"><div id="mood-content"></div></div>
 
   <!-- DIAGNOSIS -->
   <div class="page" id="page-diagnosis"><div id="diagnosis-content"></div></div>
@@ -413,7 +447,7 @@
     function switchPage(btn, pageId) {
       document.querySelectorAll('.nav-tab').forEach(function(t){t.classList.remove('active');}); btn.classList.add('active');
       document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');}); document.getElementById(pageId).classList.add('active');
-      if(pageId==='page-recommend') renderRecommend(); if(pageId==='page-stats') renderStats(); if(pageId==='page-diagnosis') renderDiagnosis();
+      if(pageId==='page-recommend') renderRecommend(); if(pageId==='page-stats') renderStats(); if(pageId==='page-diagnosis') renderDiagnosis(); if(pageId==='page-mood') startMoodQuiz();
     }
     function openModal(id) { document.getElementById(id).classList.add('open'); }
     function closeModal(id) { document.getElementById(id).classList.remove('open'); }
@@ -883,6 +917,180 @@
       return data.map(function(d) {
         return '<div class="bar-row"><div class="bar-label">' + d[0] + '</div><div class="bar-track"><div class="bar-fill" style="width:' + (d[1]/m*100) + '%;' + (d[2]||'') + '"></div></div><div class="bar-val">' + d[1] + '</div></div>';
       }).join('');
+    }
+
+    // ===== MOOD QUIZ =====
+    var moodQuestions = [
+      {q:'今の気分は？', opts:[
+        {t:'😊 穏やかで幸せ', s:{warm:2,light:1}},
+        {t:'😢 ちょっと落ち込んでる', s:{deep:2,emotion:1}},
+        {t:'😤 モヤモヤ・ストレス', s:{catharsis:2,action:1}},
+        {t:'🥱 退屈・刺激がほしい', s:{thrill:2,action:1}},
+        {t:'🤔 考え事をしたい', s:{think:2,deep:1}},
+      ]},
+      {q:'どんな読書体験がしたい？', opts:[
+        {t:'🥲 思いっきり泣きたい', s:{emotion:3,deep:1}},
+        {t:'😂 笑って元気になりたい', s:{light:3,warm:1}},
+        {t:'💓 ドキドキハラハラしたい', s:{thrill:3,action:1}},
+        {t:'🧠 頭を使って考えたい', s:{think:3,logic:1}},
+        {t:'🌈 別世界に旅立ちたい', s:{fantasy:3,action:1}},
+      ]},
+      {q:'主人公に求めるものは？', opts:[
+        {t:'💪 逆境に立ち向かう強さ', s:{action:2,catharsis:1}},
+        {t:'💕 誰かを想う優しさ', s:{emotion:2,warm:1}},
+        {t:'🧩 鮮やかに謎を解く知性', s:{logic:2,thrill:1}},
+        {t:'🌱 ゆっくり成長する姿', s:{warm:2,light:1}},
+        {t:'🔥 常識を壊す破天荒さ', s:{thrill:2,fantasy:1}},
+      ]},
+      {q:'今の自分に近い状態は？', opts:[
+        {t:'🏠 家でゆっくりしたい', s:{warm:2,deep:1}},
+        {t:'✈️ どこか遠くへ行きたい', s:{fantasy:2,action:1}},
+        {t:'👥 誰かとつながりたい', s:{emotion:2,warm:1}},
+        {t:'📝 自分と向き合いたい', s:{think:2,deep:1}},
+        {t:'⚡ 何かに夢中になりたい', s:{thrill:2,action:1}},
+      ]},
+      {q:'好きな映画のタイプは？', opts:[
+        {t:'🎬 ヒューマンドラマ', s:{emotion:2,deep:1}},
+        {t:'🔫 サスペンス・アクション', s:{thrill:2,action:1}},
+        {t:'💑 ラブストーリー', s:{emotion:1,warm:2}},
+        {t:'🚀 SF・ファンタジー', s:{fantasy:3}},
+        {t:'📰 社会派・ドキュメンタリー', s:{think:2,logic:1}},
+      ]},
+      {q:'理想のページ数は？', opts:[
+        {t:'📄 サクッと短め（〜300p）', s:{light:2}},
+        {t:'📖 ちょうどいい（300〜500p）', s:{warm:1,action:1}},
+        {t:'📚 どっぷり長編（500p〜）', s:{deep:2,fantasy:1}},
+      ]},
+      {q:'読後に感じたいのは？', opts:[
+        {t:'☀️ 明日も頑張ろうという前向きさ', s:{warm:2,light:1,catharsis:1}},
+        {t:'🌙 しばらく余韻に浸る切なさ', s:{deep:3,emotion:1}},
+        {t:'🤯 世界の見え方が変わる衝撃', s:{think:2,thrill:1,logic:1}},
+        {t:'😌 心が静かに落ち着く安らぎ', s:{warm:2,deep:1}},
+      ]},
+      {q:'自分の性格は？', opts:[
+        {t:'🎯 論理的で分析好き', s:{logic:3,think:1}},
+        {t:'🎨 感覚的で直感派', s:{emotion:2,fantasy:1}},
+        {t:'🤝 共感力が高い', s:{emotion:2,warm:1}},
+        {t:'🗻 独立心が強い', s:{action:1,think:1,thrill:1}},
+      ]},
+    ];
+
+    var moodResults = [
+      {id:'emotion-deep', check:function(s){return s.emotion>=4&&s.deep>=3;},
+        author:'凪良ゆう', type:'感涙の物語師', desc:'あなたは今、心の奥底を揺さぶるような物語を求めています。人間の弱さと強さ、愛の複雑さに触れることで、自分の感情を解放したいのかもしれません。',
+        books:[{t:'流浪の月',a:'凪良ゆう',r:'世間の「普通」を問い直す深い余韻'},{t:'52ヘルツのクジラたち',a:'町田そのこ',r:'誰にも届かない叫びを救う'},{t:'ライオンのおやつ',a:'小川糸',r:'生きることの意味を静かに問う'}]},
+      {id:'warm-light', check:function(s){return s.warm>=4&&s.light>=2;},
+        author:'瀬尾まいこ', type:'日常の温もり発見者', desc:'あなたは今、心がほっと温まるような物語を求めています。派手な展開より、身近な幸せや人の優しさに触れたい気分です。',
+        books:[{t:'そして、バトンは渡された',a:'瀬尾まいこ',r:'血のつながりを超えた家族の愛'},{t:'カフネ',a:'阿部暁子',r:'温かい料理が凍りついた日常をほどく'},{t:'お探し物は図書室まで',a:'青山美智子',r:'司書の選書が人生をそっと変える'}]},
+      {id:'thrill-action', check:function(s){return s.thrill>=4&&s.action>=3;},
+        author:'伊坂幸太郎', type:'スリルの求道者', desc:'あなたは今、ページをめくる手が止まらないような興奮を求めています。巧みな伏線と予想外の展開に脳を刺激されたい気分です。',
+        books:[{t:'ゴールデンスランバー',a:'伊坂幸太郎',r:'濡れ衣からの逃走劇。最高傑作'},{t:'マリアビートル',a:'伊坂幸太郎',r:'新幹線で殺し屋たちの群像劇'},{t:'告白',a:'湊かなえ',r:'教師の衝撃的な告白から始まる'}]},
+      {id:'think-logic', check:function(s){return s.think>=4&&s.logic>=2;},
+        author:'東野圭吾', type:'知的探求の旅人', desc:'あなたは今、頭を使って考える読書を求めています。精巧なパズルを解くような快感と、その先にある人間の真実に触れたい気分です。',
+        books:[{t:'容疑者Xの献身',a:'東野圭吾',r:'天才数学者vs物理学者の頭脳戦'},{t:'方舟',a:'夕木春央',r:'極限状態で試される人間性'},{t:'六人の嘘つきな大学生',a:'浅倉秋成',r:'就活の心理戦と衝撃の結末'}]},
+      {id:'fantasy-action', check:function(s){return s.fantasy>=4;},
+        author:'上橋菜穂子', type:'異世界の冒険者', desc:'あなたは今、現実を離れて壮大な世界に飛び込みたい気分です。想像力を全開にして、知らない世界を冒険しましょう。',
+        books:[{t:'鹿の王',a:'上橋菜穂子',r:'戦士と幼子の壮大なファンタジー'},{t:'レーエンデ国物語',a:'多崎礼',r:'呪われた地の王道ファンタジー'},{t:'夜は短し歩けよ乙女',a:'森見登美彦',r:'京都の珍事件と不思議な恋'}]},
+      {id:'catharsis', check:function(s){return s.catharsis>=3;},
+        author:'池井戸潤', type:'正義のカタルシスを求める者', desc:'あなたは今、ストレスを吹き飛ばすような痛快な物語を求めています。不正に立ち向かい、正義が勝つ展開に胸がすく思いをしたい。',
+        books:[{t:'半沢直樹 オレたちバブル入行組',a:'池井戸潤',r:'倍返しの痛快リベンジ'},{t:'下町ロケット',a:'池井戸潤',r:'町工場の挑戦に胸が熱くなる'},{t:'同志少女よ、敵を撃て',a:'逢坂冬馬',r:'少女の戦いと成長の歴史冒険譚'}]},
+      {id:'emotion-warm', check:function(s){return s.emotion>=3&&s.warm>=3;},
+        author:'重松清', type:'人間賛歌の語り部', desc:'あなたは今、人と人とのつながりの温かさに触れたい気分です。家族や友人との何気ない日常に宿る愛情を感じたい。',
+        books:[{t:'きみの友だち',a:'重松清',r:'友だちって何だろう'},{t:'旅猫リポート',a:'有川浩',r:'猫と飼い主の最後の旅で涙'},{t:'博士の愛した数式',a:'小川洋子',r:'80分の記憶と数学が繋ぐ絆'}]},
+      {id:'think-deep', check:function(s){return s.think>=3&&s.deep>=3;},
+        author:'朝井リョウ', type:'社会の深層を読む者', desc:'あなたは今、社会の見えない構造や人間の本質について考えたい気分です。「当たり前」を疑い、新しい視点を獲得したい。',
+        books:[{t:'正欲',a:'朝井リョウ',r:'多様性の裏側を鋭く描く'},{t:'コンビニ人間',a:'村田沙耶香',r:'「普通」とは何かを問う'},{t:'推し、燃ゆ',a:'宇佐見りん',r:'推し活と生きることの境界'}]},
+      {id:'light-fantasy', check:function(s){return s.light>=2&&s.fantasy>=2;},
+        author:'森見登美彦', type:'愉快な空想旅行者', desc:'あなたは今、くすっと笑えて心が軽くなるような物語を求めています。現実にちょっとだけ魔法をかけた世界で楽しみたい。',
+        books:[{t:'有頂天家族',a:'森見登美彦',r:'京都の狸一家の愉快な日常'},{t:'ペンギン・ハイウェイ',a:'森見登美彦',r:'少年が追うペンギンの謎'},{t:'図書館戦争',a:'有川浩',r:'本を守るための近未来バトル'}]},
+      {id:'default', check:function(s){return true;},
+        author:'夏目漱石', type:'万能の読書人', desc:'あなたは幅広い感性を持ち、どんなジャンルも楽しめるバランスの取れた読書家です。今日は古典的な名作に挑戦してみませんか？',
+        books:[{t:'蜜蜂と遠雷',a:'恩田陸',r:'ピアノコンクールの音楽と青春'},{t:'舟を編む',a:'三浦しをん',r:'言葉の海を渡る辞書づくりの情熱'},{t:'成瀬は天下を取りにいく',a:'宮島未奈',r:'我が道を行く痛快な青春'}]},
+    ];
+
+    var moodScores = {};
+    var moodStep = 0;
+
+    function startMoodQuiz() {
+      moodScores = {emotion:0,warm:0,deep:0,light:0,thrill:0,action:0,think:0,logic:0,fantasy:0,catharsis:0};
+      moodStep = 0;
+      renderMoodQuestion();
+    }
+
+    function renderMoodQuestion() {
+      var el = document.getElementById('mood-content');
+      if (moodStep >= moodQuestions.length) { renderMoodResult(); return; }
+      var q = moodQuestions[moodStep];
+
+      var progressHtml = moodQuestions.map(function(_,i) {
+        var cls = i < moodStep ? 'done' : i === moodStep ? 'current' : '';
+        return '<div class="mood-progress-dot ' + cls + '"></div>';
+      }).join('');
+
+      var optsHtml = q.opts.map(function(o, i) {
+        return '<div class="mood-opt" onclick="answerMood(' + i + ')">' + o.t + '</div>';
+      }).join('');
+
+      el.innerHTML = '<div class="mood-section">' +
+        '<div class="mood-progress">' + progressHtml + '</div>' +
+        '<div class="mood-q-num">QUESTION ' + (moodStep+1) + ' / ' + moodQuestions.length + '</div>' +
+        '<div class="mood-q">' + q.q + '</div>' +
+        '<div class="mood-opts">' + optsHtml + '</div>' +
+        (moodStep > 0 ? '<div style="text-align:center;margin-top:1rem;"><button class="btn btn-ghost btn-sm" onclick="moodStep=0;startMoodQuiz();">最初からやり直す</button></div>' : '') +
+      '</div>';
+    }
+
+    function answerMood(optIdx) {
+      var q = moodQuestions[moodStep];
+      var scores = q.opts[optIdx].s;
+      Object.keys(scores).forEach(function(k) { moodScores[k] = (moodScores[k]||0) + scores[k]; });
+      moodStep++;
+      renderMoodQuestion();
+    }
+
+    function renderMoodResult() {
+      var result = null;
+      for (var i = 0; i < moodResults.length; i++) {
+        if (moodResults[i].check(moodScores)) { result = moodResults[i]; break; }
+      }
+
+      var booksHtml = result.books.map(function(b) {
+        var idx = bookDB.findIndex(function(d){return d.t===b.t;});
+        return '<div class="mood-book-card"' + (idx>=0?' onclick="addFromDB('+idx+')"':'') + '>' +
+          '<div class="book-cover" style="width:40px;height:56px;flex-shrink:0;">📖</div>' +
+          '<div><div class="mood-book-title">' + b.t + '</div>' +
+          '<div class="mood-book-author">' + b.a + '</div>' +
+          '<div class="mood-book-reason">' + b.r + '</div></div></div>';
+      }).join('');
+
+      // Score breakdown
+      var topScores = Object.entries(moodScores).sort(function(a,b){return b[1]-a[1];}).slice(0,4);
+      var scoreLabels = {emotion:'感情',warm:'温かさ',deep:'深さ',light:'軽やかさ',thrill:'スリル',action:'躍動',think:'思考',logic:'論理',fantasy:'幻想',catharsis:'カタルシス'};
+      var maxScore = topScores[0] ? topScores[0][1] : 1;
+      var scoresHtml = topScores.map(function(x) {
+        return '<div class="bar-row"><div class="bar-label">' + (scoreLabels[x[0]]||x[0]) + '</div>' +
+          '<div class="bar-track"><div class="bar-fill" style="width:' + (x[1]/maxScore*100) + '%"></div></div>' +
+          '<div class="bar-val">' + x[1] + '</div></div>';
+      }).join('');
+
+      var el = document.getElementById('mood-content');
+      el.innerHTML = '<div class="mood-section">' +
+        '<div class="mood-result">' +
+          '<div class="mood-result-header">' +
+            '<div class="mood-result-type">YOUR READING MOOD</div>' +
+            '<div class="mood-result-title">' + result.author + '</div>' +
+            '<div class="mood-result-sub">' + result.type + '</div>' +
+          '</div>' +
+          '<div class="mood-result-body">' +
+            '<div class="mood-result-desc">' + result.desc + '</div>' +
+            '<div style="font-size:0.72rem;color:var(--text3);margin-bottom:0.5rem;font-weight:600;">あなたの気分スコア</div>' +
+            scoresHtml +
+            '<div style="font-size:0.72rem;color:var(--text3);margin:1rem 0 0.5rem;font-weight:600;">今のあなたにおすすめの3冊</div>' +
+            booksHtml +
+          '</div>' +
+        '</div>' +
+        '<button class="btn btn-accent mood-restart" onclick="startMoodQuiz()">もう一度診断する</button>' +
+      '</div>';
     }
 
     // ===== DIAGNOSIS =====
