@@ -243,6 +243,7 @@
       <button class="btn btn-outline btn-sm" onclick="openSearch()">🔍 本を検索・追加</button>
       <button class="btn btn-outline btn-sm" onclick="openAddBook()">✏️ 手動追加</button>
       <button class="btn btn-outline btn-sm" onclick="loadDemo()">🎲 Demo</button>
+      <button class="btn btn-outline btn-sm" onclick="fetchCoversInBackground()">🖼️ 表紙取得</button>
       <button class="btn btn-outline btn-sm" onclick="exportData()">📥</button>
       <button class="btn btn-outline btn-sm" onclick="document.getElementById('import-file').click()">📤</button>
       <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
@@ -1607,21 +1608,30 @@
     // ===== FETCH COVERS =====
     async function fetchCoversInBackground() {
       var noCover = books.filter(function(b){return !b.cover;});
+      if (!noCover.length) return;
       var updated = 0;
+      var errors = 0;
       for (var i = 0; i < noCover.length; i++) {
+        if (errors >= 3) break; // Stop if too many errors (quota likely exceeded)
         try {
-          var q = encodeURIComponent(noCover[i].title + ' ' + noCover[i].author);
+          // Use title only for intitle: search (more accurate)
+          var q = encodeURIComponent(noCover[i].title);
           var res = await fetch('https://www.googleapis.com/books/v1/volumes?q=intitle:' + q + '&maxResults=1');
+          if (res.status === 429) { errors++; await new Promise(function(r){setTimeout(r,2000);}); continue; }
           var data = await res.json();
-          if (data.items && data.items[0] && data.items[0].volumeInfo.imageLinks) {
-            noCover[i].cover = data.items[0].volumeInfo.imageLinks.thumbnail.replace('http:', 'https:');
-            updated++;
+          if (data.items && data.items[0]) {
+            var imgs = data.items[0].volumeInfo.imageLinks;
+            if (imgs && imgs.thumbnail) {
+              noCover[i].cover = imgs.thumbnail.replace('http:', 'https:');
+              updated++;
+              errors = 0; // Reset error count on success
+            }
           }
-        } catch(e) {}
-        // Rate limit: wait 200ms between requests
-        if (i < noCover.length - 1) await new Promise(function(r){setTimeout(r, 200);});
-        // Save and re-render every 10 books
-        if (updated > 0 && updated % 10 === 0) { save(); renderBoard(); }
+        } catch(e) { errors++; }
+        // Rate limit: wait 500ms between requests
+        await new Promise(function(r){setTimeout(r, 500);});
+        // Save and re-render every 5 books
+        if (updated > 0 && updated % 5 === 0) { save(); renderBoard(); }
       }
       if (updated > 0) { save(); renderBoard(); }
     }
