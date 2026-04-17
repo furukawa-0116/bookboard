@@ -900,8 +900,9 @@
           '<div class="rec-category-body">';
         cat.items.forEach(function(item) {
           var idx = bookDB.indexOf(bookDB.find(function(x){return x.t===item.d.t;}));
+          var gcCls = {'ヒューマンドラマ':'gc-hd','ミステリー':'gc-my','SF・ファンタジー':'gc-sf','青春':'gc-se','恋愛':'gc-re','歴史・時代':'gc-hi','お仕事':'gc-wo','社会派':'gc-so'}[item.d.g] || 'gc-df';
           html += '<div class="recommend-card" onclick="addFromDB(' + (idx>=0?idx:0) + ')">' +
-            '<div class="book-cover" style="width:45px;height:63px;"><div class="book-cover-gen gc-df" style="width:45px;height:63px;"><span>' + (d.t||d.d&&d.d.t||'').slice(0,8) + '</span></div></div>' +
+            '<div class="book-cover" style="width:45px;height:63px;"><div class="book-cover-gen ' + gcCls + '" style="width:45px;height:63px;"><span>' + item.d.t.slice(0,8) + '</span></div></div>' +
             '<div class="book-card-info">' +
               '<div class="book-card-title">' + item.d.t + '</div>' +
               '<div class="book-card-author">' + item.d.a + '</div>' +
@@ -923,7 +924,8 @@
       var html = '<div style="margin-top:1.5rem;"><div class="recommend-title">本屋大賞データベース</div><div class="recommend-sub">歴代受賞作・ノミネート作品から追加</div><div class="recommend-grid">';
       available.slice(0,8).forEach(function(d) {
         var idx = bookDB.indexOf(d);
-        html += '<div class="recommend-card" onclick="addFromDB(' + idx + ')"><div class="book-cover" style="width:45px;height:63px;"><div class="book-cover-gen gc-df" style="width:45px;height:63px;"><span>' + (d.t||d.d&&d.d.t||'').slice(0,8) + '</span></div></div><div class="book-card-info"><div class="book-card-title">' + d.t + '</div><div class="book-card-author">' + d.a + '</div><div class="book-card-tags"><span class="tag tag-genre">' + d.g + '</span>' + (d.aw?'<span class="tag tag-award">'+d.aw.split(',')[0]+'</span>':'') + '</div></div></div>';
+        var gc2 = {'ヒューマンドラマ':'gc-hd','ミステリー':'gc-my','SF・ファンタジー':'gc-sf','青春':'gc-se','恋愛':'gc-re','歴史・時代':'gc-hi','お仕事':'gc-wo','社会派':'gc-so'}[d.g] || 'gc-df';
+        html += '<div class="recommend-card" onclick="addFromDB(' + idx + ')"><div class="book-cover" style="width:45px;height:63px;"><div class="book-cover-gen ' + gc2 + '" style="width:45px;height:63px;"><span>' + d.t.slice(0,8) + '</span></div></div><div class="book-card-info"><div class="book-card-title">' + d.t + '</div><div class="book-card-author">' + d.a + '</div><div class="book-card-tags"><span class="tag tag-genre">' + d.g + '</span>' + (d.aw?'<span class="tag tag-award">'+d.aw.split(',')[0]+'</span>':'') + '</div></div></div>';
       });
       html += '</div></div>';
       return html;
