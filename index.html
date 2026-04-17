@@ -137,6 +137,28 @@
     .search-loading { text-align: center; padding: 2rem; color: var(--text3); }
     .search-empty { text-align: center; padding: 2rem; color: var(--text3); font-size: 0.85rem; }
 
+    /* Heatmap */
+    .heatmap-wrap { overflow-x: auto; }
+    .heatmap { border-collapse: collapse; font-size: 0.7rem; min-width: 100%; }
+    .heatmap th { padding: 0.35rem 0.5rem; font-weight: 600; color: var(--text2); white-space: nowrap; position: sticky; top: 0; background: var(--surface); }
+    .heatmap th.genre-label { text-align: left; min-width: 90px; }
+    .heatmap th.month-label { text-align: center; writing-mode: horizontal-tb; font-size: 0.62rem; }
+    .heatmap td { padding: 0; text-align: center; }
+    .heatmap-cell {
+      width: 32px; height: 28px; margin: 1px auto; border-radius: 3px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.62rem; font-weight: 700; color: transparent; transition: all 0.15s;
+    }
+    .heatmap-cell:hover { color: #fff; transform: scale(1.2); }
+    .heatmap-cell.lv0 { background: var(--bg); }
+    .heatmap-cell.lv1 { background: rgba(200,151,63,0.2); color: transparent; }
+    .heatmap-cell.lv2 { background: rgba(200,151,63,0.4); }
+    .heatmap-cell.lv3 { background: rgba(200,151,63,0.6); }
+    .heatmap-cell.lv4 { background: rgba(200,151,63,0.8); }
+    .heatmap-cell.lv5 { background: var(--accent); }
+    .heatmap-legend { display: flex; align-items: center; gap: 0.3rem; margin-top: 0.5rem; justify-content: flex-end; font-size: 0.65rem; color: var(--text3); }
+    .heatmap-legend-cell { width: 14px; height: 14px; border-radius: 2px; }
+
     @media (max-width: 768px) {
       .board { grid-template-columns: 1fr; padding: 1rem; }
       .column { min-height: 200px; }
@@ -618,6 +640,74 @@
       }).join('');
     }
 
+    function renderGenreMonthHeatmap(done) {
+      // Collect all months and genres
+      var monthSet = {};
+      var genreSet = {};
+      var matrix = {};
+      done.forEach(function(b) {
+        if (!b.doneDate || !b.genre) return;
+        var m = b.doneDate.slice(0, 7);
+        monthSet[m] = true;
+        genreSet[b.genre] = true;
+        var key = b.genre + '|' + m;
+        matrix[key] = (matrix[key] || 0) + 1;
+      });
+      var months = Object.keys(monthSet).sort();
+      var genres = Object.keys(genreSet).sort();
+      if (!months.length || !genres.length) return '';
+
+      var maxVal = 0;
+      Object.values(matrix).forEach(function(v) { if (v > maxVal) maxVal = v; });
+
+      function level(v) {
+        if (!v) return 'lv0';
+        var pct = v / maxVal;
+        if (pct <= 0.2) return 'lv1';
+        if (pct <= 0.4) return 'lv2';
+        if (pct <= 0.6) return 'lv3';
+        if (pct <= 0.8) return 'lv4';
+        return 'lv5';
+      }
+
+      // Header row: months
+      var headerHtml = '<th class="genre-label">ジャンル</th>';
+      months.forEach(function(m) {
+        headerHtml += '<th class="month-label">' + m.slice(2).replace('-', '/') + '</th>';
+      });
+
+      // Data rows: genres
+      var rowsHtml = '';
+      genres.forEach(function(g) {
+        rowsHtml += '<tr><th class="genre-label">' + g + '</th>';
+        months.forEach(function(m) {
+          var val = matrix[g + '|' + m] || 0;
+          rowsHtml += '<td><div class="heatmap-cell ' + level(val) + '">' + (val || '') + '</div></td>';
+        });
+        rowsHtml += '</tr>';
+      });
+
+      // Total row
+      rowsHtml += '<tr><th class="genre-label" style="color:var(--accent);font-weight:700;">合計</th>';
+      months.forEach(function(m) {
+        var total = 0;
+        genres.forEach(function(g) { total += matrix[g + '|' + m] || 0; });
+        rowsHtml += '<td><div class="heatmap-cell" style="font-size:0.65rem;font-weight:800;color:var(--accent);background:none;">' + total + '</div></td>';
+      });
+      rowsHtml += '</tr>';
+
+      return '<div class="chart-card"><div class="chart-title">ジャンル × 月 ヒートマップ</div>' +
+        '<div class="heatmap-wrap"><table class="heatmap"><thead><tr>' + headerHtml + '</tr></thead><tbody>' + rowsHtml + '</tbody></table></div>' +
+        '<div class="heatmap-legend"><span>少</span>' +
+        '<div class="heatmap-legend-cell" style="background:var(--bg);border:1px solid var(--border);"></div>' +
+        '<div class="heatmap-legend-cell" style="background:rgba(200,151,63,0.2);"></div>' +
+        '<div class="heatmap-legend-cell" style="background:rgba(200,151,63,0.4);"></div>' +
+        '<div class="heatmap-legend-cell" style="background:rgba(200,151,63,0.6);"></div>' +
+        '<div class="heatmap-legend-cell" style="background:rgba(200,151,63,0.8);"></div>' +
+        '<div class="heatmap-legend-cell" style="background:var(--accent);"></div>' +
+        '<span>多</span></div></div>';
+    }
+
     function renderStats() {
       var done = books.filter(function(b){return b.status==='done';});
       var rated = done.filter(function(b){return b.rating;});
@@ -741,7 +831,7 @@
       var authorHtml = '<div class="chart-card"><div class="chart-title">著者ランキング</div>' + barChart(authorSorted, authorMax) + '</div>';
 
       document.getElementById('stats-content').innerHTML = '<div class="stats-section">' +
-        overviewHtml + monthHtml + ratingHtml + grHtml + genreHtml + periodGenreHtml + pgrHtml + authorHtml +
+        overviewHtml + monthHtml + renderGenreMonthHeatmap(done) + ratingHtml + grHtml + genreHtml + periodGenreHtml + pgrHtml + authorHtml +
         '</div>';
     }
 
