@@ -35,8 +35,9 @@
     .btn-ghost { background: none; border: 1px solid var(--border); color: var(--text2); } .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
 
     /* Nav tabs */
-    .nav-tabs { background: var(--surface); border-bottom: 1px solid var(--border); display: flex; padding: 0 1.5rem; }
-    .nav-tab { padding: 0.7rem 1.2rem; font-size: 0.85rem; color: var(--text3); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; background: none; border-top: none; border-left: none; border-right: none; font-weight: 600; }
+    .nav-tabs { background: var(--surface); border-bottom: 1px solid var(--border); display: flex; padding: 0 1rem; overflow-x: auto; -webkit-overflow-scrolling: touch; gap: 0; }
+    .nav-tabs::-webkit-scrollbar { display: none; }
+    .nav-tab { padding: 0.7rem 0.9rem; font-size: 0.8rem; color: var(--text3); cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.15s; background: none; border-top: none; border-left: none; border-right: none; font-weight: 600; white-space: nowrap; flex-shrink: 0; }
     .nav-tab:hover { color: var(--text); } .nav-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
     .page { display: none; } .page.active { display: block; }
 
@@ -70,7 +71,7 @@
     .gc-so { background: linear-gradient(135deg, #26C6DA, #00838F); }
     .gc-df { background: linear-gradient(135deg, #78909C, #37474F); }
     .book-card-info { flex: 1; min-width: 0; }
-    .book-card-title { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .book-card-title { font-size: 0.82rem; font-weight: 700; color: var(--text); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4; }
     .book-card-author { font-size: 0.7rem; color: var(--text3); margin-top: 0.1rem; }
     .book-card-tags { display: flex; gap: 0.25rem; flex-wrap: wrap; margin-top: 0.3rem; }
     .tag { font-size: 0.6rem; padding: 0.08rem 0.4rem; border-radius: 0.8rem; font-weight: 600; }
@@ -238,11 +239,21 @@
     .heatmap-legend-cell { width: 14px; height: 14px; border-radius: 2px; }
 
     @media (max-width: 768px) {
-      .board { grid-template-columns: 1fr; padding: 1rem; }
-      .column { min-height: 200px; }
+      .board { grid-template-columns: 1fr; padding: 0.8rem; gap: 0.8rem; }
+      .column { min-height: 150px; }
       .recommend-grid { grid-template-columns: 1fr; }
+      .rec-category-body { grid-template-columns: 1fr; }
       .stats-grid { grid-template-columns: repeat(2, 1fr); }
       .form-grid { grid-template-columns: 1fr; }
+      .header { padding: 0.6rem 1rem; }
+      .header-actions { gap: 0.3rem; }
+      .header-actions .btn { padding: 0.25rem 0.5rem; font-size: 0.65rem; }
+      .header .btn-label { display: none; }
+      .diag-axes { grid-template-columns: 1fr; }
+      .recommend-section { padding: 1rem; }
+      .stats-section { padding: 1rem; }
+      .mood-section { padding: 1rem; }
+      .diag-section { padding: 1rem; }
     }
   </style>
 </head>
@@ -251,9 +262,9 @@
     <div class="logo"><span>Book</span>Board</div>
     <div class="header-actions">
       <button class="btn btn-primary btn-sm" id="install-btn" style="display:none;" onclick="installApp()">📲 アプリをインストール</button>
-      <button class="btn btn-outline btn-sm" onclick="openSearch()">🔍 本を検索・追加</button>
-      <button class="btn btn-outline btn-sm" onclick="openAddBook()">✏️ 手動追加</button>
-      <button class="btn btn-outline btn-sm" onclick="loadDemo()">🎲 Demo</button>
+      <button class="btn btn-outline btn-sm" onclick="openSearch()">🔍 <span class="btn-label">検索</span></button>
+      <button class="btn btn-outline btn-sm" onclick="openAddBook()">✏️ <span class="btn-label">追加</span></button>
+      <button class="btn btn-outline btn-sm" onclick="loadDemo()">🎲</button>
       <button class="btn btn-outline btn-sm" onclick="exportData()">📥</button>
       <button class="btn btn-outline btn-sm" onclick="document.getElementById('import-file').click()">📤</button>
       <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
@@ -759,6 +770,13 @@
       save(); closeModal('modal-add'); renderBoard();
     }
     function deleteBook(id) { if(!confirm('削除しますか？')) return; books = books.filter(b=>b.id!==id); save(); closeModal('modal-detail'); renderBoard(); }
+    function changeStatus(id, status) {
+      var b = books.find(function(x){return x.id===id;});
+      if (!b) return;
+      b.status = status;
+      if (status === 'done' && !b.doneDate) b.doneDate = new Date().toISOString().slice(0,10);
+      save(); renderBoard(); openDetail(id);
+    }
 
     // ===== ADD FROM DB =====
     function addFromDB(idx) {
@@ -785,6 +803,14 @@
         </div>
         ${b.synopsis ? `<div class="detail-section"><div class="detail-section-title">あらすじ</div><div class="detail-synopsis">${b.synopsis}</div></div>` : ''}
         ${b.note ? `<div class="detail-section"><div class="detail-section-title">メモ・感想</div><div class="detail-note">${b.note}</div></div>` : ''}
+        <div class="detail-section">
+          <div class="detail-section-title">ステータス変更</div>
+          <div style="display:flex;gap:0.4rem;flex-wrap:wrap;">
+            <button class="btn btn-sm ${b.status==='want'?'btn-accent':'btn-ghost'}" onclick="changeStatus('${b.id}','want')">📚 読みたい</button>
+            <button class="btn btn-sm ${b.status==='reading'?'btn-accent':'btn-ghost'}" onclick="changeStatus('${b.id}','reading')">📖 読んでる</button>
+            <button class="btn btn-sm ${b.status==='done'?'btn-accent':'btn-ghost'}" onclick="changeStatus('${b.id}','done')">✅ 読了</button>
+          </div>
+        </div>
         <div class="detail-actions">
           <button class="btn btn-accent btn-sm" onclick="openEditBook('${b.id}')">編集</button>
           <button class="btn btn-ghost btn-sm" style="color:var(--red);border-color:var(--red);" onclick="deleteBook('${b.id}')">削除</button>
