@@ -56,8 +56,19 @@
     .book-card { background: var(--card); border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.7rem; margin-bottom: 0.5rem; cursor: grab; transition: box-shadow 0.15s, transform 0.15s; display: flex; gap: 0.6rem; }
     .book-card:hover { box-shadow: 0 3px 12px rgba(0,0,0,0.08); transform: translateY(-1px); }
     .book-card.dragging { opacity: 0.5; }
-    .book-cover { width: 40px; height: 56px; background: var(--border); border-radius: 0.2rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 1rem; overflow: hidden; }
+    .book-cover { width: 40px; height: 56px; border-radius: 0.2rem; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 1rem; overflow: hidden; position: relative; }
     .book-cover img { width: 100%; height: 100%; object-fit: cover; }
+    .book-cover-gen { width: 100%; height: 100%; display: flex; align-items: flex-end; justify-content: center; padding: 3px; border-radius: 0.2rem; }
+    .book-cover-gen span { font-size: 0.38rem; font-weight: 700; color: #fff; text-align: center; line-height: 1.3; word-break: break-all; overflow: hidden; max-height: 100%; }
+    .gc-hd { background: linear-gradient(135deg, #5C6BC0, #3949AB); }
+    .gc-my { background: linear-gradient(135deg, #E53935, #B71C1C); }
+    .gc-sf { background: linear-gradient(135deg, #7E57C2, #4527A0); }
+    .gc-se { background: linear-gradient(135deg, #43A047, #2E7D32); }
+    .gc-re { background: linear-gradient(135deg, #EC407A, #C2185B); }
+    .gc-hi { background: linear-gradient(135deg, #8D6E63, #4E342E); }
+    .gc-wo { background: linear-gradient(135deg, #FFA726, #E65100); }
+    .gc-so { background: linear-gradient(135deg, #26C6DA, #00838F); }
+    .gc-df { background: linear-gradient(135deg, #78909C, #37474F); }
     .book-card-info { flex: 1; min-width: 0; }
     .book-card-title { font-size: 0.82rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .book-card-author { font-size: 0.7rem; color: var(--text3); margin-top: 0.1rem; }
@@ -243,7 +254,6 @@
       <button class="btn btn-outline btn-sm" onclick="openSearch()">🔍 本を検索・追加</button>
       <button class="btn btn-outline btn-sm" onclick="openAddBook()">✏️ 手動追加</button>
       <button class="btn btn-outline btn-sm" onclick="loadDemo()">🎲 Demo</button>
-      <button class="btn btn-outline btn-sm" onclick="fetchCoversInBackground()">🖼️ 表紙取得</button>
       <button class="btn btn-outline btn-sm" onclick="exportData()">📥</button>
       <button class="btn btn-outline btn-sm" onclick="document.getElementById('import-file').click()">📤</button>
       <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
@@ -623,6 +633,14 @@
       return '';
     }
 
+    // ===== COVER HELPER =====
+    function genCover(b) {
+      if (b.cover) return '<div class="book-cover"><img src="' + esc(b.cover) + '" alt=""></div>';
+      var cls = {'ヒューマンドラマ':'gc-hd','ミステリー':'gc-my','SF・ファンタジー':'gc-sf','青春':'gc-se','恋愛':'gc-re','歴史・時代':'gc-hi','お仕事':'gc-wo','社会派':'gc-so'}[b.genre] || 'gc-df';
+      var title = b.title.length > 10 ? b.title.slice(0,10) : b.title;
+      return '<div class="book-cover"><div class="book-cover-gen ' + cls + '"><span>' + esc(title) + '</span></div></div>';
+    }
+
     // ===== BOARD =====
     function renderBoard() {
       ['want','reading','done'].forEach(status => {
@@ -631,7 +649,7 @@
         document.getElementById('count-'+status).textContent = list.length;
         col.innerHTML = list.map(b => `
           <div class="book-card" draggable="true" ondragstart="dragStart(event,'${b.id}')" onclick="openDetail('${b.id}')">
-            <div class="book-cover">${b.cover ? `<img src="${b.cover}" alt="">` : '📖'}</div>
+            ${genCover(b)}
             <div class="book-card-info">
               <div class="book-card-title">${b.title}</div>
               <div class="book-card-author">${b.author}</div>
@@ -695,7 +713,7 @@
       const stars = b.rating ? [1,2,3,4,5].map(i=>`<span class="star ${i<=b.rating?'filled':''}">★</span>`).join('') : 'なし';
       document.getElementById('detail-content').innerHTML = `
         <div class="detail-header">
-          <div class="detail-cover">${b.cover ? `<img src="${b.cover}">` : '📖'}</div>
+          <div class="detail-cover">${b.cover ? `<img src="${b.cover}">` : `<div class="book-cover-gen ${{'\u30D2\u30E5\u30FC\u30DE\u30F3\u30C9\u30E9\u30DE':'gc-hd','\u30DF\u30B9\u30C6\u30EA\u30FC':'gc-my','SF\u30FB\u30D5\u30A1\u30F3\u30BF\u30B8\u30FC':'gc-sf','\u9752\u6625':'gc-se','\u604B\u611B':'gc-re','\u6B74\u53F2\u30FB\u6642\u4EE3':'gc-hi','\u304A\u4ED5\u4E8B':'gc-wo','\u793E\u4F1A\u6D3E':'gc-so'}[b.genre]||'gc-df'}" style="width:80px;height:112px;font-size:0.7rem;"><span>${b.title.slice(0,12)}</span></div>`}</div>
           <div>
             <div class="detail-title">${b.title}</div>
             <div class="detail-author">著 / ${b.author}</div>
@@ -883,7 +901,7 @@
         cat.items.forEach(function(item) {
           var idx = bookDB.indexOf(bookDB.find(function(x){return x.t===item.d.t;}));
           html += '<div class="recommend-card" onclick="addFromDB(' + (idx>=0?idx:0) + ')">' +
-            '<div class="book-cover" style="width:45px;height:63px;">📖</div>' +
+            '<div class="book-cover" style="width:45px;height:63px;"><div class="book-cover-gen gc-df" style="width:45px;height:63px;"><span>' + (d.t||d.d&&d.d.t||'').slice(0,8) + '</span></div></div>' +
             '<div class="book-card-info">' +
               '<div class="book-card-title">' + item.d.t + '</div>' +
               '<div class="book-card-author">' + item.d.a + '</div>' +
@@ -905,7 +923,7 @@
       var html = '<div style="margin-top:1.5rem;"><div class="recommend-title">本屋大賞データベース</div><div class="recommend-sub">歴代受賞作・ノミネート作品から追加</div><div class="recommend-grid">';
       available.slice(0,8).forEach(function(d) {
         var idx = bookDB.indexOf(d);
-        html += '<div class="recommend-card" onclick="addFromDB(' + idx + ')"><div class="book-cover" style="width:45px;height:63px;">📖</div><div class="book-card-info"><div class="book-card-title">' + d.t + '</div><div class="book-card-author">' + d.a + '</div><div class="book-card-tags"><span class="tag tag-genre">' + d.g + '</span>' + (d.aw?'<span class="tag tag-award">'+d.aw.split(',')[0]+'</span>':'') + '</div></div></div>';
+        html += '<div class="recommend-card" onclick="addFromDB(' + idx + ')"><div class="book-cover" style="width:45px;height:63px;"><div class="book-cover-gen gc-df" style="width:45px;height:63px;"><span>' + (d.t||d.d&&d.d.t||'').slice(0,8) + '</span></div></div><div class="book-card-info"><div class="book-card-title">' + d.t + '</div><div class="book-card-author">' + d.a + '</div><div class="book-card-tags"><span class="tag tag-genre">' + d.g + '</span>' + (d.aw?'<span class="tag tag-award">'+d.aw.split(',')[0]+'</span>':'') + '</div></div></div>';
       });
       html += '</div></div>';
       return html;
