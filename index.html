@@ -152,6 +152,28 @@
     .search-loading { text-align: center; padding: 2rem; color: var(--text3); }
     .search-empty { text-align: center; padding: 2rem; color: var(--text3); font-size: 0.85rem; }
 
+    /* Diagnosis */
+    .diag-section { padding: 1.5rem; max-width: 640px; margin: 0 auto; }
+    .diag-result { background: var(--surface); border: 1px solid var(--border); border-radius: 1rem; overflow: hidden; margin-bottom: 1.5rem; }
+    .diag-header { padding: 2rem 1.5rem; text-align: center; background: linear-gradient(135deg, #2A1810 0%, #3A2218 100%); color: #F7F0E3; }
+    .diag-type-code { font-size: 0.75rem; letter-spacing: 0.3em; color: var(--accent); margin-bottom: 0.5rem; }
+    .diag-author { font-size: 2rem; font-weight: 800; font-family: Georgia, serif; margin-bottom: 0.3rem; }
+    .diag-subtitle { font-size: 0.85rem; color: #A09080; }
+    .diag-body { padding: 1.5rem; }
+    .diag-desc { font-size: 0.88rem; line-height: 1.8; color: var(--text); margin-bottom: 1.2rem; }
+    .diag-axes { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; margin-bottom: 1.2rem; }
+    .diag-axis { background: var(--bg); border-radius: 0.5rem; padding: 0.7rem; }
+    .diag-axis-label { font-size: 0.65rem; color: var(--text3); letter-spacing: 0.08em; margin-bottom: 0.4rem; }
+    .diag-axis-bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 0.3rem; }
+    .diag-axis-bar div { height: 100%; }
+    .diag-axis-names { display: flex; justify-content: space-between; font-size: 0.68rem; color: var(--text2); }
+    .diag-traits { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 1rem; }
+    .diag-trait { font-size: 0.72rem; padding: 0.2rem 0.6rem; border-radius: 1rem; background: rgba(200,151,63,0.12); color: var(--accent); font-weight: 600; }
+    .diag-compat { background: var(--bg); border-radius: 0.5rem; padding: 0.8rem; }
+    .diag-compat-title { font-size: 0.7rem; color: var(--text3); margin-bottom: 0.4rem; font-weight: 600; }
+    .diag-compat-item { font-size: 0.82rem; color: var(--text); margin-bottom: 0.2rem; }
+    .diag-empty { text-align: center; padding: 4rem 2rem; color: var(--text3); }
+
     /* Heatmap */
     .heatmap-wrap { overflow-x: auto; }
     .heatmap { border-collapse: collapse; font-size: 0.7rem; min-width: 100%; }
@@ -200,6 +222,7 @@
     <button class="nav-tab active" onclick="switchPage(this,'page-board')">📋 Board</button>
     <button class="nav-tab" onclick="switchPage(this,'page-recommend')">💡 Recommend</button>
     <button class="nav-tab" onclick="switchPage(this,'page-stats')">📊 Stats</button>
+    <button class="nav-tab" onclick="switchPage(this,'page-diagnosis')">🎭 文豪診断</button>
   </div>
 
   <!-- BOARD -->
@@ -213,6 +236,9 @@
 
   <!-- RECOMMEND -->
   <div class="page" id="page-recommend"><div id="recommend-content"></div></div>
+
+  <!-- DIAGNOSIS -->
+  <div class="page" id="page-diagnosis"><div id="diagnosis-content"></div></div>
 
   <!-- STATS -->
   <div class="page" id="page-stats"><div id="stats-content"></div></div>
@@ -374,9 +400,13 @@
     ];
 
     // ===== MODAL =====
+    function switchPage(btn, pageId) {
+      document.querySelectorAll('.nav-tab').forEach(function(t){t.classList.remove('active');}); btn.classList.add('active');
+      document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active');}); document.getElementById(pageId).classList.add('active');
+      if(pageId==='page-recommend') renderRecommend(); if(pageId==='page-stats') renderStats(); if(pageId==='page-diagnosis') renderDiagnosis();
+    }
     function openModal(id) { document.getElementById(id).classList.add('open'); }
     function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-    function switchPage(btn, pageId) { document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active')); btn.classList.add('active'); document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); document.getElementById(pageId).classList.add('active'); if(pageId==='page-recommend') renderRecommend(); if(pageId==='page-stats') renderStats(); }
 
     // ===== GOOGLE BOOKS SEARCH =====
     function openSearch() {
@@ -843,6 +873,110 @@
       return data.map(function(d) {
         return '<div class="bar-row"><div class="bar-label">' + d[0] + '</div><div class="bar-track"><div class="bar-fill" style="width:' + (d[1]/m*100) + '%;' + (d[2]||'') + '"></div></div><div class="bar-val">' + d[1] + '</div></div>';
       }).join('');
+    }
+
+    // ===== DIAGNOSIS =====
+    var bungouTypes = {
+      'HRSC':{name:'太宰治',sub:'繊細な内面の探求者',desc:'あなたは登場人物の心の機微に深く共感し、静かな物語の中に人生の真実を見出すタイプ。華やかな冒険より、一人の人間の内面を丁寧に描いた作品に惹かれます。太宰治のように、人間の弱さと美しさの両方を愛する読書家です。',traits:['共感力が高い','静かな物語が好き','人間観察が鋭い','余韻を大切にする'],compat:'宮沢賢治タイプ',books:'「人間失格」「斜陽」「走れメロス」'},
+      'HRSN':{name:'凪良ゆう',sub:'現代の感情翻訳家',desc:'現代社会の生きづらさや、言葉にしにくい感情を丁寧にすくい上げる物語に共鳴します。多様な愛の形や、世間の「普通」に縛られない生き方に関心があります。凪良ゆうのように、時代の空気を感じ取る繊細なアンテナを持っています。',traits:['現代的な感性','多様性への理解','静かだが芯が強い','言葉を大切にする'],compat:'重松清タイプ',books:'「汝、星のごとく」「流浪の月」「滅びの前のシャングリラ」'},
+      'HRDC':{name:'夏目漱石',sub:'知性と情緒の調和者',desc:'社会の中で生きる人間の葛藤を、冷静な目と温かい心で見つめるタイプ。行動的な物語の中にも人間の本質を求めます。漱石のように、ユーモアと深い洞察を兼ね備えた読書家です。',traits:['バランス感覚','社会への関心','行動力がある','ユーモアを愛す'],compat:'司馬遼太郎タイプ',books:'「こころ」「坊っちゃん」「三四郎」'},
+      'HRDN':{name:'重松清',sub:'日常の温もり発見者',desc:'家族や友人との何気ない日常の中にドラマを見出すタイプ。派手な展開より、リアルな人間関係の温かさに心を動かされます。重松清のように、身近な幸せと切なさを大切にする読書家です。',traits:['家族思い','共感力が高い','日常を愛す','涙もろい'],compat:'凪良ゆうタイプ',books:'「流星ワゴン」「きみの友だち」「とんび」'},
+      'HISC':{name:'宮沢賢治',sub:'幻想世界の詩人',desc:'現実を超えた美しい世界に心を遊ばせるタイプ。自然や宇宙のスケール感に感動し、詩的な表現に魅了されます。宮沢賢治のように、この世界の神秘と優しさを信じる読書家です。',traits:['詩的感性','自然を愛す','理想主義','独自の世界観'],compat:'村上春樹タイプ',books:'「銀河鉄道の夜」「注文の多い料理店」「風の又三郎」'},
+      'HISN':{name:'村上春樹',sub:'孤独と幻想の旅人',desc:'日常の裏側にある不思議な世界に惹かれるタイプ。孤独を恐れず、むしろ一人の時間に豊かな想像力を働かせます。村上春樹のように、現実と非現実の境界を自由に行き来する読書家です。',traits:['独特の感性','孤独を愛す','音楽好き','哲学的'],compat:'森見登美彦タイプ',books:'「1Q84」「ノルウェイの森」「海辺のカフカ」'},
+      'HIDC':{name:'上橋菜穂子',sub:'壮大な物語の冒険家',desc:'異世界の壮大なスケールと、その中で生きるキャラクターの成長に胸を熱くするタイプ。感情豊かに冒険を楽しみ、物語の中に人生の教訓を見出します。上橋菜穂子のように、想像力で新しい世界を創り出す読書家です。',traits:['冒険心','想像力豊か','感情移入しやすい','世界観重視'],compat:'宮沢賢治タイプ',books:'「精霊の守り人」「鹿の王」「獣の奏者」'},
+      'HIDN':{name:'森見登美彦',sub:'愉快な空想冒険家',desc:'現実にファンタジーのスパイスを加えた物語を愛するタイプ。ユーモアと知性が共存する世界に居心地の良さを感じます。森見登美彦のように、日常を楽しく彩る想像力の持ち主です。',traits:['ユーモア','知的好奇心','楽天的','独創的'],compat:'伊坂幸太郎タイプ',books:'「夜は短し歩けよ乙女」「有頂天家族」「ペンギン・ハイウェイ」'},
+      'MRSC':{name:'芥川龍之介',sub:'鋭利な人間観察者',desc:'人間の本質を冷徹に見つめ、短い言葉で核心を突くタイプ。美しい文体と鋭い洞察に価値を置きます。芥川のように、知性と美意識を兼ね備えた読書家です。',traits:['観察力','美意識が高い','完璧主義','知的'],compat:'太宰治タイプ',books:'「羅生門」「鼻」「蜘蛛の糸」'},
+      'MRSN':{name:'朝井リョウ',sub:'現代社会の解剖者',desc:'SNS時代の人間関係や社会の矛盾を鋭く分析するタイプ。「普通」の裏にある息苦しさに気づき、問題提起する物語に共感します。朝井リョウのように、時代の空気を言語化する力を持っています。',traits:['社会派','分析的','問題意識が高い','現代的'],compat:'凪良ゆうタイプ',books:'「正欲」「何者」「桐島、部活やめるってよ」'},
+      'MRDC':{name:'司馬遼太郎',sub:'歴史のダイナミズムを愛する者',desc:'歴史の大きなうねりの中に、人間の知恵と勇気を見出すタイプ。論理的に物事を捉えながらも、スケールの大きな物語に胸を躍らせます。司馬遼太郎のように、過去から未来を読み解く読書家です。',traits:['歴史好き','論理的','スケール感','リーダーシップ'],compat:'池井戸潤タイプ',books:'「竜馬がゆく」「坂の上の雲」「燃えよ剣」'},
+      'MRDN':{name:'池井戸潤',sub:'正義のビジネス戦士',desc:'不正に立ち向かい、努力が報われる物語にカタルシスを感じるタイプ。現実社会の仕組みへの関心が高く、仕事を通じた成長に共感します。池井戸潤のように、正義感と実行力を信じる読書家です。',traits:['正義感','ビジネス志向','行動的','リアリスト'],compat:'司馬遼太郎タイプ',books:'「半沢直樹」「下町ロケット」「空飛ぶタイヤ」'},
+      'MISC':{name:'江戸川乱歩',sub:'暗闇の知的探求者',desc:'謎に満ちた世界を知的好奇心で探求するタイプ。論理的なパズルを解く快感と、人間の暗部への興味が共存しています。乱歩のように、理性と狂気の境界を楽しむ読書家です。',traits:['知的好奇心','謎解き好き','独特の美学','探求心'],compat:'芥川龍之介タイプ',books:'「孤島の鬼」「人間椅子」「怪人二十面相」'},
+      'MISN':{name:'伊坂幸太郎',sub:'知的遊戯の魔術師',desc:'伏線回収の快感と、独特の世界観に魅了されるタイプ。論理的な構造の中にユーモアと温かさを求めます。伊坂幸太郎のように、知性と遊び心で物語を楽しむ読書家です。',traits:['伏線好き','ユーモア','知的','独自の価値観'],compat:'森見登美彦タイプ',books:'「ゴールデンスランバー」「重力ピエロ」「アヒルと鴨のコインロッカー」'},
+      'MIDC':{name:'横溝正史',sub:'本格推理の冒険者',desc:'壮大な謎と緻密なトリックの両方を楽しむタイプ。論理的な推理を軸に、スリリングな展開を求めます。横溝のように、知性とスケール感を兼ね備えた冒険的な読書家です。',traits:['推理力','スリル好き','古典的教養','粘り強い'],compat:'江戸川乱歩タイプ',books:'「犬神家の一族」「八つ墓村」「獄門島」'},
+      'MIDN':{name:'東野圭吾',sub:'現代ミステリーの開拓者',desc:'巧みなプロットと社会性を兼ね備えた物語を好むタイプ。謎解きだけでなく、その裏にある人間ドラマにも目を向けます。東野圭吾のように、エンタテインメントと深みを両立させる読書家です。',traits:['バランス型','エンタメ好き','好奇心旺盛','柔軟'],compat:'伊坂幸太郎タイプ',books:'「容疑者Xの献身」「白夜行」「ナミヤ雑貨店の奇蹟」'},
+    };
+
+    function renderDiagnosis() {
+      var done = books.filter(function(b){return b.status==='done' && b.rating;});
+      var el = document.getElementById('diagnosis-content');
+
+      if (done.length < 5) {
+        el.innerHTML = '<div class="diag-empty"><div style="font-size:3rem;margin-bottom:1rem;opacity:0.3;">🎭</div><div style="font-size:0.9rem;margin-bottom:0.5rem;">文豪診断を行うには</div><div style="font-size:0.82rem;">評価付きの読了本が5冊以上必要です（現在 ' + done.length + '冊）</div></div>';
+        return;
+      }
+
+      // Score 4 axes
+      var heart=0, mind=0, real=0, imag=0, still=0, dynamic=0, classicYears=0, yearCount=0;
+      done.forEach(function(b) {
+        var w = b.rating || 3; // weight by rating
+        var g = b.genre || '';
+        // Axis 1: Heart vs Mind
+        if (['ヒューマンドラマ','恋愛','青春'].indexOf(g)>=0) heart += w;
+        else if (['ミステリー','社会派','お仕事'].indexOf(g)>=0) mind += w;
+        else { heart += w*0.5; mind += w*0.5; }
+        // Axis 2: Real vs Imaginary
+        if (['ヒューマンドラマ','お仕事','社会派'].indexOf(g)>=0) real += w;
+        else if (['SF・ファンタジー'].indexOf(g)>=0) imag += w;
+        else if (['ミステリー'].indexOf(g)>=0) { real += w*0.3; imag += w*0.7; }
+        else if (['歴史・時代'].indexOf(g)>=0) { real += w*0.7; imag += w*0.3; }
+        else { real += w*0.5; imag += w*0.5; }
+        // Axis 3: Still vs Dynamic
+        if (['恋愛','ヒューマンドラマ','社会派'].indexOf(g)>=0) still += w;
+        else if (['ミステリー','青春','歴史・時代','SF・ファンタジー'].indexOf(g)>=0) dynamic += w;
+        else { still += w*0.5; dynamic += w*0.5; }
+        // Axis 4: Classic vs Modern
+        if (b.year) { classicYears += b.year; yearCount++; }
+      });
+
+      var avgYear = yearCount ? classicYears / yearCount : 2015;
+      var code = (heart>=mind?'H':'M') + (real>=imag?'R':'I') + (still>=dynamic?'S':'D') + (avgYear<2010?'C':'N');
+      var type = bungouTypes[code] || bungouTypes['HRSN'];
+
+      var hPct = Math.round(heart/(heart+mind)*100) || 50;
+      var rPct = Math.round(real/(real+imag)*100) || 50;
+      var sPct = Math.round(still/(still+dynamic)*100) || 50;
+      var cPct = avgYear < 2010 ? Math.round((2020-avgYear)/30*100) : Math.round((2020-avgYear)/30*100);
+      cPct = Math.max(10, Math.min(90, 50 + (2010-avgYear)*3));
+
+      el.innerHTML = '<div class="diag-section">' +
+        '<div class="diag-result">' +
+          '<div class="diag-header">' +
+            '<div class="diag-type-code">' + code + '</div>' +
+            '<div class="diag-author">' + type.name + '</div>' +
+            '<div class="diag-subtitle">' + type.sub + '</div>' +
+          '</div>' +
+          '<div class="diag-body">' +
+            '<div class="diag-desc">' + type.desc + '</div>' +
+            '<div class="diag-axes">' +
+              diagAxis('感情派 vs 理知派', '感情', '理知', hPct, '#E8C878', '#4F8CFF') +
+              diagAxis('現実派 vs 幻想派', '現実', '幻想', rPct, '#00D68F', '#6C5CE7') +
+              diagAxis('静寂派 vs 躍動派', '静寂', '躍動', sPct, '#90CAF9', '#FF6B6B') +
+              diagAxis('古典派 vs 現代派', '古典', '現代', cPct, '#A1887F', '#FDCB6E') +
+            '</div>' +
+            '<div style="font-size:0.72rem;color:var(--text3);margin-bottom:0.5rem;font-weight:600;">あなたの読書特性</div>' +
+            '<div class="diag-traits">' + type.traits.map(function(t){return '<span class="diag-trait">' + t + '</span>';}).join('') + '</div>' +
+            '<div class="diag-compat">' +
+              '<div class="diag-compat-title">💡 相性の良いタイプ</div>' +
+              '<div class="diag-compat-item">' + type.compat + '</div>' +
+            '</div>' +
+            '<div class="diag-compat" style="margin-top:0.5rem;">' +
+              '<div class="diag-compat-title">📖 このタイプにおすすめの代表作</div>' +
+              '<div class="diag-compat-item">' + type.books + '</div>' +
+            '</div>' +
+            '<div style="margin-top:1rem;font-size:0.72rem;color:var(--text3);text-align:center;">読了 ' + done.length + '冊・平均出版年 ' + Math.round(avgYear) + '年 のデータから診断</div>' +
+          '</div>' +
+        '</div>' +
+      '</div>';
+    }
+
+    function diagAxis(title, leftName, rightName, leftPct, leftColor, rightColor) {
+      return '<div class="diag-axis">' +
+        '<div class="diag-axis-label">' + title + '</div>' +
+        '<div class="diag-axis-bar">' +
+          '<div style="width:' + leftPct + '%;background:' + leftColor + ';"></div>' +
+          '<div style="width:' + (100-leftPct) + '%;background:' + rightColor + ';"></div>' +
+        '</div>' +
+        '<div class="diag-axis-names"><span>' + leftName + ' ' + leftPct + '%</span><span>' + rightName + ' ' + (100-leftPct) + '%</span></div>' +
+      '</div>';
     }
 
     function switchStatsTab(btn, panelId) {
